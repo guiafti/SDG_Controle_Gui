@@ -1,0 +1,11 @@
+node_modules/
+dist/
+dist-ssr/
+*.local
+.env
+.env.*
+out/
+release/
+local.db
+local.db-journal
+local.db-wal
