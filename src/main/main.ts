@@ -132,9 +132,14 @@ ipcMain.handle('archive-product', async (_, { id, archived }) => {
   }
 });
 
-ipcMain.handle('update-inventory-quantity', async (_, { productId, storeId, quantity }) => {
+ipcMain.handle('update-inventory-quantity', async (_, { productId, storeId, quantity, minStock, saleToleranceDays }) => {
   try {
-    await run('INSERT OR REPLACE INTO inventory (product_id, store_id, quantity) VALUES (?, ?, ?)', [productId, storeId, quantity]);
+    if (minStock !== undefined || saleToleranceDays !== undefined) {
+      await run('INSERT OR REPLACE INTO inventory (product_id, store_id, quantity, min_stock, sale_tolerance_days) VALUES (?, ?, ?, ?, ?)', 
+        [productId, storeId, quantity, minStock ?? 2, saleToleranceDays ?? 30]);
+    } else {
+      await run('UPDATE inventory SET quantity = ? WHERE product_id = ? AND store_id = ?', [quantity, productId, storeId]);
+    }
     return { success: true };
   } catch (error) {
     return { success: false, error: 'ERRO AO ATUALIZAR ESTOQUE' };
@@ -145,10 +150,79 @@ ipcMain.handle('get-all-products', async () => {
   return await query(`
     SELECT p.*, 
     COALESCE((SELECT quantity FROM inventory WHERE product_id = p.id AND store_id = '1'), 0) as stock_1,
+    COALESCE((SELECT min_stock FROM inventory WHERE product_id = p.id AND store_id = '1'), 2) as min_1,
+    COALESCE((SELECT sale_tolerance_days FROM inventory WHERE product_id = p.id AND store_id = '1'), 30) as stale_1,
     COALESCE((SELECT quantity FROM inventory WHERE product_id = p.id AND store_id = '2'), 0) as stock_2,
-    COALESCE((SELECT quantity FROM inventory WHERE product_id = p.id AND store_id = '3'), 0) as stock_3
+    COALESCE((SELECT min_stock FROM inventory WHERE product_id = p.id AND store_id = '2'), 2) as min_2,
+    COALESCE((SELECT sale_tolerance_days FROM inventory WHERE product_id = p.id AND store_id = '2'), 30) as stale_2,
+    COALESCE((SELECT quantity FROM inventory WHERE product_id = p.id AND store_id = '3'), 0) as stock_3,
+    COALESCE((SELECT min_stock FROM inventory WHERE product_id = p.id AND store_id = '3'), 2) as min_3,
+    COALESCE((SELECT sale_tolerance_days FROM inventory WHERE product_id = p.id AND store_id = '3'), 30) as stale_3
     FROM products p ORDER BY p.archived ASC, p.name ASC
   `);
+});
+
+ipcMain.handle('get-low-stock-items', async () => {
+  try {
+    const items = await query(`
+      SELECT 
+        p.id,
+        p.name, 
+        p.barcode,
+        COALESCE((SELECT quantity FROM inventory WHERE product_id = p.id AND store_id = '1'), 0) as stock_1,
+        COALESCE((SELECT quantity FROM inventory WHERE product_id = p.id AND store_id = '2'), 0) as stock_2,
+        COALESCE((SELECT quantity FROM inventory WHERE product_id = p.id AND store_id = '3'), 0) as stock_3,
+        COALESCE((SELECT min_stock FROM inventory WHERE product_id = p.id AND store_id = '1'), 2) as min_1,
+        COALESCE((SELECT min_stock FROM inventory WHERE product_id = p.id AND store_id = '2'), 2) as min_2,
+        COALESCE((SELECT min_stock FROM inventory WHERE product_id = p.id AND store_id = '3'), 2) as min_3
+      FROM products p
+      WHERE p.archived = 0 AND EXISTS (
+        SELECT 1 FROM inventory i 
+        WHERE i.product_id = p.id 
+        AND i.quantity <= COALESCE(i.min_stock, 2)
+      )
+      ORDER BY p.name ASC
+      LIMIT 20
+    `);
+    return items;
+  } catch (e) {
+    console.error('[ERRO DASHBOARD QUERY]', e);
+    return [];
+  }
+});
+
+ipcMain.handle('get-stale-stock-items', async () => {
+  try {
+    const items = await query(`
+      SELECT 
+        p.id, p.name, p.barcode,
+        COALESCE((SELECT quantity FROM inventory WHERE product_id = p.id AND store_id = '1'), 0) as stock_1,
+        COALESCE((SELECT quantity FROM inventory WHERE product_id = p.id AND store_id = '2'), 0) as stock_2,
+        COALESCE((SELECT quantity FROM inventory WHERE product_id = p.id AND store_id = '3'), 0) as stock_3,
+        COALESCE((SELECT sale_tolerance_days FROM inventory WHERE product_id = p.id AND store_id = '1'), 30) as stale_1,
+        COALESCE((SELECT sale_tolerance_days FROM inventory WHERE product_id = p.id AND store_id = '2'), 30) as stale_2,
+        COALESCE((SELECT sale_tolerance_days FROM inventory WHERE product_id = p.id AND store_id = '3'), 30) as stale_3
+      FROM products p
+      WHERE p.archived = 0 
+      AND (SELECT SUM(quantity) FROM inventory WHERE product_id = p.id) > 0
+      AND EXISTS (
+        SELECT 1 FROM inventory i 
+        WHERE i.product_id = p.id 
+        AND i.quantity > 0
+        AND p.id NOT IN (
+          SELECT DISTINCT json_each.value->>'$.id'
+          FROM sales, json_each(sales.items)
+          WHERE sales.created_at > date('now', '-' || COALESCE(i.sale_tolerance_days, 30) || ' days')
+        )
+      )
+      ORDER BY p.name ASC
+      LIMIT 20
+    `);
+    return items;
+  } catch (e) {
+    console.error('[ERRO STALE STOCK]', e);
+    return [];
+  }
 });
 
 ipcMain.handle('get-sync-status', async () => {
@@ -158,10 +232,20 @@ ipcMain.handle('get-sync-status', async () => {
 });
 
 ipcMain.handle('get-product-by-barcode', async (_, barcode: string, storeId: string) => {
-  const product = await get('SELECT * FROM products WHERE barcode = ? AND archived = 0', [cleanBarcode(barcode)]);
+  const product = await get(`
+    SELECT p.*, 
+    COALESCE((SELECT quantity FROM inventory WHERE product_id = p.id AND store_id = '1'), 0) as stock_1,
+    COALESCE((SELECT min_stock FROM inventory WHERE product_id = p.id AND store_id = '1'), 2) as min_1,
+    COALESCE((SELECT quantity FROM inventory WHERE product_id = p.id AND store_id = '2'), 0) as stock_2,
+    COALESCE((SELECT min_stock FROM inventory WHERE product_id = p.id AND store_id = '2'), 2) as min_2,
+    COALESCE((SELECT quantity FROM inventory WHERE product_id = p.id AND store_id = '3'), 0) as stock_3,
+    COALESCE((SELECT min_stock FROM inventory WHERE product_id = p.id AND store_id = '3'), 2) as min_3
+    FROM products p WHERE p.barcode = ? AND p.archived = 0
+  `, [cleanBarcode(barcode)]);
+  
   if (product && storeId) {
-    const stock = await get('SELECT quantity FROM inventory WHERE product_id = ? AND store_id = ?', [product.id, storeId]);
-    product.stock = stock ? stock.quantity : 0;
+    product.stock = product[`stock_${storeId}`] || 0;
+    product.min_stock = product[`min_${storeId}`] || 2;
   }
   return product;
 });

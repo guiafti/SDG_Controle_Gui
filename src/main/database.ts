@@ -67,6 +67,7 @@ export const initDatabase = async () => {
     store_id TEXT, 
     quantity INTEGER DEFAULT 0, 
     min_stock INTEGER DEFAULT 2, 
+    sale_tolerance_days INTEGER DEFAULT 30,
     PRIMARY KEY(product_id, store_id)
   )`);
 
@@ -90,6 +91,10 @@ export const initDatabase = async () => {
 
   try {
     await run(`ALTER TABLE products ADD COLUMN synced INTEGER DEFAULT 0`);
+  } catch (e: any) {}
+
+  try {
+    await run(`ALTER TABLE inventory ADD COLUMN sale_tolerance_days INTEGER DEFAULT 30`);
   } catch (e: any) {}
 
   try {

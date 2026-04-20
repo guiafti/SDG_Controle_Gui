@@ -39,7 +39,12 @@ const CartList: React.FC<CartListProps> = ({ items, onUpdateQuantity, logo }) =>
             [...items].reverse().map((item, index) => {
               const subtotal = item.preco * item.qtd;
               const itemNum = (items.length - index).toString().padStart(3, '0');
-              const imgUrl = item.imagem || 'https://placehold.co/150x150/f1f5f9/64748b?text=OS';
+              
+              // Correção para exibir imagens locais ou placeholders
+              let imgUrl = item.imagem || 'https://placehold.co/150x150/f1f5f9/64748b?text=OS';
+              if (item.imagem && !item.imagem.startsWith('http') && !item.imagem.startsWith('data:image')) {
+                imgUrl = `local-img://${item.imagem}`;
+              }
 
               return (
                 <div key={`${item.id}-${index}`} className="flex items-center px-4 py-4 bg-white/90 backdrop-blur-sm rounded-xl border border-slate-200 shadow-sm transition-all hover:border-brand-300 hover:shadow-md gap-2 mb-2">

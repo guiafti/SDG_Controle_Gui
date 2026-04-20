@@ -118,7 +118,33 @@ const App: React.FC = () => {
     try {
       const produto = await window.api.getProductByBarcode(codigo, lojaId);
       if (produto) {
-        if (produto.stock <= 0) toast.error(`ATENÇÃO: Produto ${produto.name} sem estoque nesta loja!`);
+        // Notificação de estoque multiloja
+        toast((t) => (
+          <div className="flex flex-col gap-2 p-1 min-w-[200px]">
+            <div className="flex items-center gap-3 border-b border-slate-100 pb-2 mb-1">
+              <div className="w-8 h-8 rounded bg-brand-50 flex items-center justify-center shrink-0">
+                <i className="ph ph-package text-brand-600"></i>
+              </div>
+              <span className="font-black text-slate-800 text-xs uppercase truncate">{produto.name}</span>
+            </div>
+            <div className="grid grid-cols-3 gap-2 text-center">
+              <div className={`p-2 rounded-xl ${lojaId === '1' ? 'bg-brand-600 text-white ring-4 ring-brand-500/20' : 'bg-slate-50 text-slate-400'}`}>
+                <span className="text-[8px] font-black uppercase block">Loja A</span>
+                <span className="text-sm font-black">{produto.stock_1}</span>
+              </div>
+              <div className={`p-2 rounded-xl ${lojaId === '2' ? 'bg-brand-600 text-white ring-4 ring-brand-500/20' : 'bg-slate-50 text-slate-400'}`}>
+                <span className="text-[8px] font-black uppercase block">Loja B</span>
+                <span className="text-sm font-black">{produto.stock_2}</span>
+              </div>
+              <div className={`p-2 rounded-xl ${lojaId === '3' ? 'bg-brand-600 text-white ring-4 ring-brand-500/20' : 'bg-slate-50 text-slate-400'}`}>
+                <span className="text-[8px] font-black uppercase block">Loja C</span>
+                <span className="text-sm font-black">{produto.stock_3}</span>
+              </div>
+            </div>
+          </div>
+        ), { position: 'bottom-left', duration: 4000, style: { borderRadius: '20px', padding: '12px', border: '1px solid #e2e8f0' } });
+
+        if (produto.stock <= 0) toast.error(`SEM ESTOQUE NA ${loja.toUpperCase()}!`, { position: 'top-center' });
         
         setCarrinho(prev => {
           const existing = prev.find(item => item.id === produto.id);
@@ -129,7 +155,7 @@ const App: React.FC = () => {
           }
         });
       } else {
-        toast.error('Produto não encontrado no banco local!');
+        toast.error('Produto não encontrado!');
       }
     } catch (error) { 
       console.error('Erro ao buscar produto:', error); 
@@ -185,7 +211,7 @@ const App: React.FC = () => {
       <div className="flex-1 relative overflow-hidden bg-white">
         <LoginModal isOpen={isLoginOpen} onLogin={handleLogin} onGoToAdmin={() => setIsLoginOpen(false)} />
         <MaintenanceModal isOpen={isMaintenanceOpen} onClose={() => setIsMaintenanceOpen(false)} onSubmit={handleMaintenanceSubmit} />
-        <ProductSearchModal isOpen={isSearchOpen} onClose={() => setIsSearchOpen(false)} onSelectProduct={(code) => { processarCodigo(code); setIsSearchOpen(false); }} />
+        <ProductSearchModal isOpen={isSearchOpen} onClose={() => setIsSearchOpen(false)} onSelectProduct={(code) => { processarCodigo(code); setIsSearchOpen(false); }} storeId={lojaId} />
         {view === 'pdv' && (
           <div id="tela-pdv" className="absolute inset-0 bg-slate-100 z-50 flex flex-col">
             <PDVHeader loja={loja} vendedor={vendedor} onGoToAdmin={() => setView('admin')} onLogout={handleLogout} logo={logoApp} />

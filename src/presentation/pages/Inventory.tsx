@@ -17,6 +17,8 @@ const Inventory: React.FC<InventoryProps> = ({ role }) => {
   const [formPrice, setFormPrice] = useState('');
   const [formImage, setFormImage] = useState('');
   const [formStocks, setFormStocks] = useState({ stock_1: 0, stock_2: 0, stock_3: 0 });
+  const [formMinStocks, setFormMinStocks] = useState({ min_1: 2, min_2: 2, min_3: 2 });
+  const [formSaleTolerances, setFormSaleTolerances] = useState({ stale_1: 30, stale_2: 30, stale_3: 30 });
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const fetchProducts = async () => {
@@ -44,6 +46,16 @@ const Inventory: React.FC<InventoryProps> = ({ role }) => {
       stock_1: p?.stock_1 || 0,
       stock_2: p?.stock_2 || 0,
       stock_3: p?.stock_3 || 0
+    });
+    setFormMinStocks({
+      min_1: p?.min_1 ?? 2,
+      min_2: p?.min_2 ?? 2,
+      min_3: p?.min_3 ?? 2
+    });
+    setFormSaleTolerances({
+      stale_1: p?.stale_1 ?? 30,
+      stale_2: p?.stale_2 ?? 30,
+      stale_3: p?.stale_3 ?? 30
     });
     setIsModalOpen(true);
   };
@@ -138,9 +150,27 @@ const Inventory: React.FC<InventoryProps> = ({ role }) => {
       if (result.success) {
         // Se for admin, atualizar as quantidades de estoque também
         if (role === 'admin' && editingProduct?.id) {
-          await window.api.updateInventoryQuantity({ productId: editingProduct.id, storeId: '1', quantity: Number(formStocks.stock_1) });
-          await window.api.updateInventoryQuantity({ productId: editingProduct.id, storeId: '2', quantity: Number(formStocks.stock_2) });
-          await window.api.updateInventoryQuantity({ productId: editingProduct.id, storeId: '3', quantity: Number(formStocks.stock_3) });
+          await window.api.updateInventoryQuantity({ 
+            productId: editingProduct.id, 
+            storeId: '1', 
+            quantity: Number(formStocks.stock_1),
+            minStock: Number(formMinStocks.min_1),
+            saleToleranceDays: Number(formSaleTolerances.stale_1)
+          });
+          await window.api.updateInventoryQuantity({ 
+            productId: editingProduct.id, 
+            storeId: '2', 
+            quantity: Number(formStocks.stock_2),
+            minStock: Number(formMinStocks.min_2),
+            saleToleranceDays: Number(formSaleTolerances.stale_2)
+          });
+          await window.api.updateInventoryQuantity({ 
+            productId: editingProduct.id, 
+            storeId: '3', 
+            quantity: Number(formStocks.stock_3),
+            minStock: Number(formMinStocks.min_3),
+            saleToleranceDays: Number(formSaleTolerances.stale_3)
+          });
         }
 
         toast.success('PRODUTO SALVO COM SUCESSO!', { id: loadingId });
@@ -223,7 +253,7 @@ const Inventory: React.FC<InventoryProps> = ({ role }) => {
   };
 
   return (
-    <div className="p-8 max-w-7xl mx-auto w-full font-sans">
+    <div className="p-8 max-w-7xl mx-auto w-full font-sans overflow-x-hidden">
       <div className="flex justify-between items-center mb-10">
         <div>
           <h2 className="text-3xl font-black text-slate-900 tracking-tighter italic uppercase">
@@ -325,19 +355,28 @@ const Inventory: React.FC<InventoryProps> = ({ role }) => {
                 </div>
 
                 <div className="w-40 flex items-center justify-center gap-4 shrink-0">
-                  <div className="flex flex-col items-center">
-                    <span className="text-[8px] text-slate-400 font-bold uppercase mb-0.5">Lj A</span>
-                    <span className={`text-xs font-black ${p.stock_1 > 0 ? 'text-slate-700' : 'text-red-500'}`}>{p.stock_1}</span>
+                  <div className={`flex flex-col items-center p-1.5 rounded-lg transition-colors ${p.stock_1 <= p.min_1 ? 'bg-red-50 ring-1 ring-red-100' : ''}`}>
+                    <span className={`text-[7px] font-black uppercase mb-0.5 ${p.stock_1 <= p.min_1 ? 'text-red-400' : 'text-slate-400'}`}>Lj A</span>
+                    <div className="flex items-center gap-0.5">
+                      <span className={`text-xs font-black ${p.stock_1 <= p.min_1 ? 'text-red-600' : 'text-slate-700'}`}>{p.stock_1}</span>
+                      {p.stock_1 <= p.min_1 && <i className="ph ph-warning-octagon text-[10px] text-red-500 animate-pulse"></i>}
+                    </div>
                   </div>
                   <div className="w-px h-6 bg-slate-200"></div>
-                  <div className="flex flex-col items-center">
-                    <span className="text-[8px] text-slate-400 font-bold uppercase mb-0.5">Lj B</span>
-                    <span className={`text-xs font-black ${p.stock_2 > 0 ? 'text-slate-700' : 'text-red-500'}`}>{p.stock_2}</span>
+                  <div className={`flex flex-col items-center p-1.5 rounded-lg transition-colors ${p.stock_2 <= p.min_2 ? 'bg-red-50 ring-1 ring-red-100' : ''}`}>
+                    <span className={`text-[7px] font-black uppercase mb-0.5 ${p.stock_2 <= p.min_2 ? 'text-red-400' : 'text-slate-400'}`}>Lj B</span>
+                    <div className="flex items-center gap-0.5">
+                      <span className={`text-xs font-black ${p.stock_2 <= p.min_2 ? 'text-red-600' : 'text-slate-700'}`}>{p.stock_2}</span>
+                      {p.stock_2 <= p.min_2 && <i className="ph ph-warning-octagon text-[10px] text-red-500 animate-pulse"></i>}
+                    </div>
                   </div>
                   <div className="w-px h-6 bg-slate-200"></div>
-                  <div className="flex flex-col items-center">
-                    <span className="text-[8px] text-slate-400 font-bold uppercase mb-0.5">Lj C</span>
-                    <span className={`text-xs font-black ${p.stock_3 > 0 ? 'text-slate-700' : 'text-red-500'}`}>{p.stock_3}</span>
+                  <div className={`flex flex-col items-center p-1.5 rounded-lg transition-colors ${p.stock_3 <= p.min_3 ? 'bg-red-50 ring-1 ring-red-100' : ''}`}>
+                    <span className={`text-[7px] font-black uppercase mb-0.5 ${p.stock_3 <= p.min_3 ? 'text-red-400' : 'text-slate-400'}`}>Lj C</span>
+                    <div className="flex items-center gap-0.5">
+                      <span className={`text-xs font-black ${p.stock_3 <= p.min_3 ? 'text-red-600' : 'text-slate-700'}`}>{p.stock_3}</span>
+                      {p.stock_3 <= p.min_3 && <i className="ph ph-warning-octagon text-[10px] text-red-500 animate-pulse"></i>}
+                    </div>
                   </div>
                 </div>
 
@@ -440,26 +479,64 @@ const Inventory: React.FC<InventoryProps> = ({ role }) => {
               </div>
 
               {role === 'admin' && editingProduct && (
-                <div className="bg-slate-50 p-5 rounded-3xl border-2 border-slate-100">
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 text-center">Ajuste de Estoque Físico (ADMIN)</label>
-                  <div className="grid grid-cols-3 gap-3">
-                    <div className="text-center">
-                      <span className="text-[8px] font-black text-slate-400 uppercase">Loja A</span>
-                      <input type="number" value={formStocks.stock_1} onChange={e => setFormStocks({...formStocks, stock_1: parseInt(e.target.value) || 0})} className="w-full mt-1 p-2 bg-white border border-slate-200 rounded-lg text-center font-black text-sm" />
-                    </div>
-                    <div className="text-center">
-                      <span className="text-[8px] font-black text-slate-400 uppercase">Loja B</span>
-                      <input type="number" value={formStocks.stock_2} onChange={e => setFormStocks({...formStocks, stock_2: parseInt(e.target.value) || 0})} className="w-full mt-1 p-2 bg-white border border-slate-200 rounded-lg text-center font-black text-sm" />
-                    </div>
-                    <div className="text-center">
-                      <span className="text-[8px] font-black text-slate-400 uppercase">Loja C</span>
-                      <input type="number" value={formStocks.stock_3} onChange={e => setFormStocks({...formStocks, stock_3: parseInt(e.target.value) || 0})} className="w-full mt-1 p-2 bg-white border border-slate-200 rounded-lg text-center font-black text-sm" />
+                <>
+                  <div className="bg-slate-50 p-5 rounded-3xl border-2 border-slate-100">
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 text-center">Ajuste de Estoque Físico (ADMIN)</label>
+                    <div className="grid grid-cols-3 gap-3">
+                      <div className="text-center">
+                        <span className="text-[8px] font-black text-slate-400 uppercase">Loja A</span>
+                        <input type="number" value={formStocks.stock_1} onChange={e => setFormStocks({...formStocks, stock_1: parseInt(e.target.value) || 0})} className="w-full mt-1 p-2 bg-white border border-slate-200 rounded-lg text-center font-black text-sm" />
+                      </div>
+                      <div className="text-center">
+                        <span className="text-[8px] font-black text-slate-400 uppercase">Loja B</span>
+                        <input type="number" value={formStocks.stock_2} onChange={e => setFormStocks({...formStocks, stock_2: parseInt(e.target.value) || 0})} className="w-full mt-1 p-2 bg-white border border-slate-200 rounded-lg text-center font-black text-sm" />
+                      </div>
+                      <div className="text-center">
+                        <span className="text-[8px] font-black text-slate-400 uppercase">Loja C</span>
+                        <input type="number" value={formStocks.stock_3} onChange={e => setFormStocks({...formStocks, stock_3: parseInt(e.target.value) || 0})} className="w-full mt-1 p-2 bg-white border border-slate-200 rounded-lg text-center font-black text-sm" />
+                      </div>
                     </div>
                   </div>
-                </div>
+
+                  <div className="bg-orange-50/50 p-5 rounded-3xl border-2 border-orange-100/50">
+                    <label className="block text-[10px] font-black text-orange-400 uppercase tracking-widest mb-3 text-center">Estoque Mínimo de Alerta (ADMIN)</label>
+                    <div className="grid grid-cols-3 gap-3">
+                      <div className="text-center">
+                        <span className="text-[8px] font-black text-orange-400 uppercase">Min Lj A</span>
+                        <input type="number" value={formMinStocks.min_1} onChange={e => setFormMinStocks({...formMinStocks, min_1: parseInt(e.target.value) || 0})} className="w-full mt-1 p-2 bg-white border border-orange-200 rounded-lg text-center font-black text-sm text-orange-600 outline-none focus:border-orange-500" />
+                      </div>
+                      <div className="text-center">
+                        <span className="text-[8px] font-black text-orange-400 uppercase">Min Lj B</span>
+                        <input type="number" value={formMinStocks.min_2} onChange={e => setFormMinStocks({...formMinStocks, min_2: parseInt(e.target.value) || 0})} className="w-full mt-1 p-2 bg-white border border-orange-200 rounded-lg text-center font-black text-sm text-orange-600 outline-none focus:border-orange-500" />
+                      </div>
+                      <div className="text-center">
+                        <span className="text-[8px] font-black text-orange-400 uppercase">Min Lj C</span>
+                        <input type="number" value={formMinStocks.min_3} onChange={e => setFormMinStocks({...formMinStocks, min_3: parseInt(e.target.value) || 0})} className="w-full mt-1 p-2 bg-white border border-orange-200 rounded-lg text-center font-black text-sm text-orange-600 outline-none focus:border-orange-500" />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-brand-50/50 p-5 rounded-3xl border-2 border-brand-100/50">
+                    <label className="block text-[10px] font-black text-brand-400 uppercase tracking-widest mb-3 text-center">Tolerância de Venda - Dias (ADMIN)</label>
+                    <div className="grid grid-cols-3 gap-3">
+                      <div className="text-center">
+                        <span className="text-[8px] font-black text-brand-400 uppercase">Dias Lj A</span>
+                        <input type="number" value={formSaleTolerances.stale_1} onChange={e => setFormSaleTolerances({...formSaleTolerances, stale_1: parseInt(e.target.value) || 0})} className="w-full mt-1 p-2 bg-white border border-brand-200 rounded-lg text-center font-black text-sm text-brand-600 outline-none focus:border-brand-500" />
+                      </div>
+                      <div className="text-center">
+                        <span className="text-[8px] font-black text-brand-400 uppercase">Dias Lj B</span>
+                        <input type="number" value={formSaleTolerances.stale_2} onChange={e => setFormSaleTolerances({...formSaleTolerances, stale_2: parseInt(e.target.value) || 0})} className="w-full mt-1 p-2 bg-white border border-brand-200 rounded-lg text-center font-black text-sm text-brand-600 outline-none focus:border-brand-500" />
+                      </div>
+                      <div className="text-center">
+                        <span className="text-[8px] font-black text-brand-400 uppercase">Dias Lj C</span>
+                        <input type="number" value={formSaleTolerances.stale_3} onChange={e => setFormSaleTolerances({...formSaleTolerances, stale_3: parseInt(e.target.value) || 0})} className="w-full mt-1 p-2 bg-white border border-brand-200 rounded-lg text-center font-black text-sm text-brand-600 outline-none focus:border-brand-500" />
+                      </div>
+                    </div>
+                  </div>
+                </>
               )}
 
-              <div className="flex gap-3 pt-4">
+              <div className="flex gap-3 pt-4 shrink-0">
                 {role === 'admin' && editingProduct && (
                   <button 
                     type="button" 

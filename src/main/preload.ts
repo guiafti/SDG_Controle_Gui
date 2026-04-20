@@ -14,6 +14,8 @@ contextBridge.exposeInMainWorld('api', {
   login: (credentials: any) => ipcRenderer.invoke('login', credentials),
   getCommissions: () => ipcRenderer.invoke('get-commissions'),
   getDashboardStats: () => ipcRenderer.invoke('get-dashboard-stats'),
+  getLowStockItems: () => ipcRenderer.invoke('get-low-stock-items'),
+  getStaleStockItems: () => ipcRenderer.invoke('get-stale-stock-items'),
   getSettings: () => ipcRenderer.invoke('get-settings'),
   saveSettings: (settings: {key: string, value: string}[]) => ipcRenderer.invoke('save-settings', settings),
   archiveProduct: (data: {id: string, archived: boolean}) => ipcRenderer.invoke('archive-product', data),
