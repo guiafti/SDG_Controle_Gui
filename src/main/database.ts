@@ -81,6 +81,17 @@ export const initDatabase = async () => {
     synced INTEGER DEFAULT 0
   )`);
 
+  // Migração: Adicionar coluna 'discount' caso a tabela já exista e não a tenha
+  try {
+    await run(`ALTER TABLE sales ADD COLUMN discount REAL DEFAULT 0`);
+    console.log('[BANCO] Migração: Coluna discount adicionada na tabela sales.');
+  } catch (e: any) {
+    // Ignorar erro se a coluna já existir (SQLITE_ERROR: duplicate column name)
+    if (!e.message.includes('duplicate column name')) {
+      console.error('[BANCO] Erro ao adicionar coluna discount:', e);
+    }
+  }
+
   // ACERTO DE CONTAS: Comissões e Finanças Matemáticas
   await run(`CREATE TABLE IF NOT EXISTS commissions (
     id TEXT PRIMARY KEY,
@@ -91,6 +102,12 @@ export const initDatabase = async () => {
     status TEXT DEFAULT 'pending',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY(sale_id) REFERENCES sales(id)
+  )`);
+
+  // CONFIGURAÇÕES GERAIS: Cor, Logo e etc.
+  await run(`CREATE TABLE IF NOT EXISTS settings (
+    key TEXT PRIMARY KEY,
+    value TEXT
   )`);
 
   const storeCount = await get('SELECT count(*) as count FROM stores');

@@ -4,11 +4,13 @@ import { initDatabase, get, run, query } from './database';
 import { GuardianProtocol } from './GuardianProtocol';
 import { SyncEngine } from './SyncEngine';
 import { randomUUID } from 'node:crypto';
-
 function createWindow() {
   const win = new BrowserWindow({
     width: 1200,
     height: 800,
+    frame: false,
+    titleBarStyle: 'hidden',
+    autoHideMenuBar: true,
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -111,6 +113,19 @@ ipcMain.handle('download-protocol-template', async () => {
   return `<?xml version="1.0" encoding="UTF-8"?><products><item><barcode>2024</barcode><name>EXEMPLO PRODUTO</name><price>50.00</price><quantity>100</quantity></item></products>`;
 });
 
+ipcMain.handle('save-user', async (_, u: any) => {
+  try {
+    if (u.id) {
+      await run('UPDATE users SET name = ?, password = ?, role = ? WHERE id = ?', [u.name, u.password, u.role, u.id]);
+    } else {
+      await run('INSERT INTO users (id, name, password, role) VALUES (?, ?, ?, ?)', [randomUUID(), u.name, u.password, u.role || 'vendedor']);
+    }
+    return { success: true };
+  } catch (e) {
+    return { success: false, error: 'ERRO AO SALVAR USUÁRIO' };
+  }
+});
+
 ipcMain.handle('get-commissions', async () => {
   return await query('SELECT * FROM commissions ORDER BY created_at DESC');
 });
@@ -123,6 +138,22 @@ ipcMain.handle('get-dashboard-stats', async () => {
     totalRevenue: totalSales?.total || 0,
     monthlyRevenue: monthSales?.total || 0
   };
+});
+
+ipcMain.handle('get-settings', async () => {
+  return await query('SELECT * FROM settings');
+});
+
+ipcMain.handle('save-settings', async (_, settingsArray: {key: string, value: string}[]) => {
+  for (const s of settingsArray) {
+    const existing = await get('SELECT key FROM settings WHERE key = ?', [s.key]);
+    if (existing) {
+      await run('UPDATE settings SET value = ? WHERE key = ?', [s.value, s.key]);
+    } else {
+      await run('INSERT INTO settings (key, value) VALUES (?, ?)', [s.key, s.value]);
+    }
+  }
+  return { success: true };
 });
 
 ipcMain.handle('get-stores', async () => {
@@ -160,6 +191,25 @@ ipcMain.handle('save-sale', async (_, sale: any) => {
     [commissionId, saleId, sale.vendedor, commissionValue, commissionPercentage * 100]);
 
   return { success: true, saleId };
+});
+
+ipcMain.on('window-minimize', (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  win?.minimize();
+});
+
+ipcMain.on('window-maximize', (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (win?.isMaximized()) {
+    win.unmaximize();
+  } else {
+    win?.maximize();
+  }
+});
+
+ipcMain.on('window-close', (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  win?.close();
 });
 
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });

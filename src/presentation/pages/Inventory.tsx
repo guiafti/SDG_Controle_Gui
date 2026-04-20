@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
+import { toast } from 'react-hot-toast';
 
 const Inventory: React.FC = () => {
   const [products, setProducts] = useState<any[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<any>(null);
 
@@ -18,6 +20,11 @@ const Inventory: React.FC = () => {
 
   useEffect(() => { fetchProducts(); }, []);
 
+  const filteredProducts = products.filter(p => 
+    p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    p.barcode.includes(searchTerm)
+  );
+
   const openModal = (p: any = null) => {
     setEditingProduct(p);
     setFormName(p?.name || '');
@@ -30,7 +37,7 @@ const Inventory: React.FC = () => {
     e.preventDefault();
     
     if (!formName || !formBarcode || !formPrice) {
-      alert('POR FAVOR, PREENCHA TODOS OS CAMPOS!');
+      toast.error('POR FAVOR, PREENCHA TODOS OS CAMPOS!');
       return;
     }
 
@@ -38,22 +45,24 @@ const Inventory: React.FC = () => {
       id: editingProduct?.id || null,
       name: formName,
       barcode: formBarcode,
-      price: formPrice, // O Main tratará a conversão para Number
+      price: formPrice,
     };
+
+    const loadingId = toast.loading('Salvando produto...');
 
     try {
       const result = await window.api.saveManualProduct(productData);
       
       if (result.success) {
-        alert('✅ PRODUTO SALVO COM SUCESSO!');
+        toast.success('PRODUTO SALVO COM SUCESSO!', { id: loadingId });
         setIsModalOpen(false);
         fetchProducts();
       } else {
-        alert(`❌ ERRO NO BANCO: ${result.error || 'Falha desconhecida'}`);
+        toast.error(`ERRO NO BANCO: ${result.error || 'Falha desconhecida'}`, { id: loadingId });
       }
     } catch (error) {
       console.error('Erro de comunicação:', error);
-      alert('🚨 ERRO CRÍTICO: Falha na comunicação com o Processo Principal.');
+      toast.error('ERRO CRÍTICO: Falha na comunicação com o Processo Principal.', { id: loadingId });
     }
   };
 
@@ -71,12 +80,14 @@ const Inventory: React.FC = () => {
         const storeId = prompt('Para qual loja deseja importar? (1, 2 ou 3)', '1');
         if (!storeId) return;
 
+        const loadingId = toast.loading('Processando XML...');
+
         try {
           const result = await window.api.importXmlProducts(xmlData, storeId);
-          alert(`PROTOCOLO PROCESSADO!\nNovos Produtos: ${result.newProducts}\nEstoques Atualizados: ${result.stockUpdates}`);
+          toast.success(`PROTOCOLO PROCESSADO!\nNovos: ${result.newProducts} | Atualizados: ${result.stockUpdates}`, { id: loadingId });
           fetchProducts();
         } catch (err) {
-          alert('ERRO AO PROCESSAR XML');
+          toast.error('ERRO AO PROCESSAR XML', { id: loadingId });
         }
       };
       reader.readAsText(file);
@@ -94,8 +105,9 @@ const Inventory: React.FC = () => {
       a.download = 'modelo_protocolo_guardiao.xml';
       a.click();
       URL.revokeObjectURL(url);
+      toast.success('Modelo baixado com sucesso!');
     } catch (err) {
-      alert('ERRO AO GERAR MODELO');
+      toast.error('ERRO AO GERAR MODELO');
     }
   };
 
@@ -131,44 +143,82 @@ const Inventory: React.FC = () => {
         </div>
       </div>
 
-      <div className="bg-white rounded-[32px] shadow-2xl shadow-slate-200/50 border border-slate-100 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left">
-            <thead>
-              <tr className="bg-slate-900 text-white">
-                <th className="px-6 py-6 text-[10px] font-black uppercase tracking-[0.2em]">Descrição do Produto</th>
-                <th className="px-6 py-6 text-[10px] font-black uppercase tracking-[0.2em]">Código</th>
-                <th className="px-6 py-6 text-[10px] font-black uppercase tracking-[0.2em]">Preço Venda</th>
-                <th className="px-6 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-center bg-blue-500">Loja A</th>
-                <th className="px-6 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-center bg-orange-500">Loja B</th>
-                <th className="px-6 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-center bg-emerald-500">Loja C</th>
-                <th className="px-6 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-right">Ações</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {products.map(p => (
-                <tr key={p.id} className="hover:bg-slate-50/80 transition-colors">
-                  <td className="px-6 py-5 font-black text-slate-800 text-lg uppercase tracking-tight">{p.name}</td>
-                  <td className="px-6 py-5 text-slate-400 font-mono font-bold">{p.barcode}</td>
-                  <td className="px-6 py-5 font-black text-brand-600 text-xl">
-                    {Number(p.price).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                  </td>
-                  <td className="px-6 py-5 text-center font-black text-blue-600 bg-blue-50/30 text-xl border-x border-white">{p.stock_1}</td>
-                  <td className="px-6 py-5 text-center font-black text-orange-600 bg-orange-50/30 text-xl border-x border-white">{p.stock_2}</td>
-                  <td className="px-6 py-5 text-center font-black text-emerald-600 bg-emerald-50/30 text-xl border-x border-white">{p.stock_3}</td>
-                  <td className="px-6 py-5 text-right">
-                    <button 
-                      onClick={() => openModal(p)}
-                      className="p-4 bg-slate-100 text-slate-400 hover:bg-brand-500 hover:text-white rounded-2xl transition-all active:scale-90"
-                    >
-                      <i className="ph ph-pencil-simple-line text-2xl"></i>
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      <div className="mb-6 relative">
+        <i className="ph ph-magnifying-glass absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 text-2xl font-bold"></i>
+        <input 
+          type="text" 
+          placeholder="Pesquisar produto por nome ou código de barras..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="w-full bg-white border border-slate-200 rounded-2xl py-4 pl-14 pr-6 outline-none focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 font-bold text-slate-700 shadow-sm transition-all"
+        />
+      </div>
+
+      <div className="bg-white rounded-[24px] shadow-sm border border-slate-200 overflow-hidden">
+        <div className="bg-slate-50 border-b border-slate-200 px-4 py-3 flex text-[10px] font-black text-slate-400 uppercase tracking-widest">
+          <div className="w-10 mr-4"></div>
+          <div className="flex-1">Produto e Código</div>
+          <div className="w-32">Valor Base</div>
+          <div className="w-40 text-center">Estoques Lojas</div>
+          <div className="w-8"></div>
         </div>
+
+        {filteredProducts.length === 0 ? (
+          <div className="p-12 text-center text-slate-400 font-bold uppercase tracking-widest">
+            {searchTerm ? 'Nenhum produto encontrado para esta pesquisa.' : 'Nenhum produto cadastrado no catálogo.'}
+          </div>
+        ) : (
+          <div className="divide-y divide-slate-100 max-h-[60vh] overflow-y-auto">
+            {filteredProducts.map(p => (
+              <div key={p.id} className="flex items-center px-4 py-3 hover:bg-slate-50/80 transition-colors group">
+                
+                <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400 group-hover:bg-brand-50 group-hover:text-brand-500 transition-colors shrink-0 mr-4">
+                  <i className="ph ph-package text-xl"></i>
+                </div>
+
+                <div className="flex-1 min-w-0 pr-4">
+                  <h3 className="font-bold text-slate-800 text-sm truncate">{p.name}</h3>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="inline-flex items-center gap-1 bg-slate-100 text-slate-500 px-2 py-0.5 rounded-md text-[10px] font-mono font-bold">
+                      <i className="ph ph-barcode"></i> {p.barcode}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="w-32 shrink-0">
+                  <span className="text-sm font-black text-emerald-600 bg-emerald-50 px-3 py-1 rounded-lg">
+                    {Number(p.price).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                  </span>
+                </div>
+
+                <div className="w-40 flex items-center justify-center gap-4 shrink-0">
+                  <div className="flex flex-col items-center">
+                    <span className="text-[8px] text-slate-400 font-bold uppercase mb-0.5">Lj A</span>
+                    <span className={`text-xs font-black ${p.stock_1 > 0 ? 'text-slate-700' : 'text-red-500'}`}>{p.stock_1}</span>
+                  </div>
+                  <div className="w-px h-6 bg-slate-200"></div>
+                  <div className="flex flex-col items-center">
+                    <span className="text-[8px] text-slate-400 font-bold uppercase mb-0.5">Lj B</span>
+                    <span className={`text-xs font-black ${p.stock_2 > 0 ? 'text-slate-700' : 'text-red-500'}`}>{p.stock_2}</span>
+                  </div>
+                  <div className="w-px h-6 bg-slate-200"></div>
+                  <div className="flex flex-col items-center">
+                    <span className="text-[8px] text-slate-400 font-bold uppercase mb-0.5">Lj C</span>
+                    <span className={`text-xs font-black ${p.stock_3 > 0 ? 'text-slate-700' : 'text-red-500'}`}>{p.stock_3}</span>
+                  </div>
+                </div>
+
+                <button 
+                  onClick={() => openModal(p)}
+                  className="w-8 h-8 ml-4 flex items-center justify-center rounded-lg text-slate-400 hover:bg-brand-500 hover:text-white transition-all shrink-0"
+                  title="Editar Produto"
+                >
+                  <i className="ph ph-pencil-simple text-lg"></i>
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {isModalOpen && (

@@ -1,11 +1,13 @@
 import React, { useRef, useEffect } from 'react';
+import { toast } from 'react-hot-toast';
 
 interface BarcodeScannerProps {
   onScan: (code: string) => void;
   onOpenMaintenance: () => void;
+  onOpenSearch: () => void;
 }
 
-const BarcodeScanner: React.FC<BarcodeScannerProps> = ({ onScan, onOpenMaintenance }) => {
+const BarcodeScanner: React.FC<BarcodeScannerProps> = ({ onScan, onOpenMaintenance, onOpenSearch }) => {
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -52,7 +54,7 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({ onScan, onOpenMaintenan
           Lançar Serviço / Manutenção
         </button>
         <button 
-          onClick={() => alert('Pesquisa manual em breve')}
+          onClick={onOpenSearch}
           className="flex-1 bg-white border border-slate-200 hover:border-brand-300 hover:bg-brand-50 text-slate-700 hover:text-brand-600 px-4 py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-all shadow-sm"
         >
           <i className="ph ph-magnifying-glass text-xl"></i>

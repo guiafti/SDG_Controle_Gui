@@ -5,15 +5,20 @@ interface PDVHeaderProps {
   vendedor: string;
   onGoToAdmin: () => void;
   onLogout: () => void;
+  logo?: string;
 }
 
-const PDVHeader: React.FC<PDVHeaderProps> = ({ loja, vendedor, onGoToAdmin, onLogout }) => {
+const PDVHeader: React.FC<PDVHeaderProps> = ({ loja, vendedor, onGoToAdmin, onLogout, logo }) => {
   return (
     <header className="bg-slate-900 text-white px-6 py-4 flex justify-between items-center shrink-0 shadow-md">
       <div className="flex items-center gap-6">
         <div className="flex items-center gap-3">
-          <div className="bg-brand-500 p-2 rounded-lg text-white">
-            <i className="ph ph-shopping-cart text-2xl"></i>
+          <div className="bg-brand-500 p-2 rounded-lg text-white flex items-center justify-center min-w-[40px] min-h-[40px]">
+            {logo ? (
+              <img src={logo} alt="Logo" className="w-8 h-8 object-contain" />
+            ) : (
+              <i className="ph ph-shopping-cart text-2xl"></i>
+            )}
           </div>
           <div>
             <h2 className="text-xl font-black tracking-wider text-brand-400">CAIXA ABERTO</h2>

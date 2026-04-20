@@ -10,7 +10,13 @@ contextBridge.exposeInMainWorld('api', {
   downloadProtocolTemplate: () => ipcRenderer.invoke('download-protocol-template'),
   getStores: () => ipcRenderer.invoke('get-stores'),
   getUsers: () => ipcRenderer.invoke('get-users'),
+  saveUser: (user: any) => ipcRenderer.invoke('save-user', user),
   login: (credentials: any) => ipcRenderer.invoke('login', credentials),
   getCommissions: () => ipcRenderer.invoke('get-commissions'),
   getDashboardStats: () => ipcRenderer.invoke('get-dashboard-stats'),
+  getSettings: () => ipcRenderer.invoke('get-settings'),
+  saveSettings: (settings: {key: string, value: string}[]) => ipcRenderer.invoke('save-settings', settings),
+  minimizeWindow: () => ipcRenderer.send('window-minimize'),
+  maximizeWindow: () => ipcRenderer.send('window-maximize'),
+  closeWindow: () => ipcRenderer.send('window-close'),
 });
