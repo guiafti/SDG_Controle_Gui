@@ -6,13 +6,14 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build && electron-builder",
-    "electron:dev": "concurrently \"npm run dev\" \"wait-on http://localhost:5173 && electron .\""
+    "electron:dev": "concurrently \"npm run dev\" \"wait-on http://localhost:5173 && npx esbuild src/main/main.ts --bundle --platform=node --external:electron --external:sqlite3 --outfile=dist/main/main.js && npx esbuild src/main/preload.ts --bundle --platform=node --external:electron --outfile=dist/main/preload.js && electron .\""
   },
   "dependencies": {
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "@phosphor-icons/web": "^2.0.2",
     "sqlite3": "^5.1.6",
+    "fast-xml-parser": "^4.2.7",
     "clsx": "^2.0.0",
     "tailwind-merge": "^1.14.0"
   },
@@ -26,6 +27,7 @@
     "autoprefixer": "^10.4.15",
     "postcss": "^8.4.28",
     "concurrently": "^8.2.1",
+    "esbuild": "^0.19.2",
     "wait-on": "^7.0.1"
   }
 }

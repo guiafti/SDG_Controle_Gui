@@ -33,6 +33,14 @@ const Sidebar: React.FC<SidebarProps> = ({ activeView, onSwitchView, onOpenPDV }
           <i className="ph ph-chart-line-up text-xl"></i>
           Dashboard
         </button>
+
+        <button 
+          onClick={() => onSwitchView('inventory')}
+          className={`nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-lg font-medium ${activeView === 'inventory' ? 'bg-brand-500 text-white' : 'hover:bg-slate-800 text-slate-300 hover:text-white'}`}
+        >
+          <i className="ph ph-package text-xl"></i>
+          Estoque / Produtos
+        </button>
         
         <button 
           onClick={() => onSwitchView('comissoes')}

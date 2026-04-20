@@ -36,37 +36,44 @@ export const run = (sql: string, params: any[] = []): Promise<any> => {
 };
 
 export const initDatabase = async () => {
-  await run(`
-    CREATE TABLE IF NOT EXISTS products (
-      id TEXT PRIMARY KEY,
-      barcode TEXT UNIQUE,
-      name TEXT NOT NULL,
-      price REAL NOT NULL,
-      image TEXT,
-      stock INTEGER DEFAULT 0,
-      category_id INTEGER
-    )
-  `);
+  await run(`CREATE TABLE IF NOT EXISTS stores (id TEXT PRIMARY KEY, name TEXT UNIQUE NOT NULL)`);
+  await run(`CREATE TABLE IF NOT EXISTS products (id TEXT PRIMARY KEY, barcode TEXT UNIQUE, name TEXT NOT NULL, price REAL NOT NULL, image TEXT, category_id TEXT)`);
+  await run(`CREATE TABLE IF NOT EXISTS inventory (product_id TEXT, store_id TEXT, quantity INTEGER DEFAULT 0, min_stock INTEGER DEFAULT 2, PRIMARY KEY(product_id, store_id))`);
+  await run(`CREATE TABLE IF NOT EXISTS sales (id TEXT PRIMARY KEY, total REAL NOT NULL, payment_method TEXT NOT NULL, vendedor TEXT NOT NULL, store_id TEXT, items TEXT NOT NULL, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, synced INTEGER DEFAULT 0)`);
 
-  await run(`
-    CREATE TABLE IF NOT EXISTS sales (
-      id TEXT PRIMARY KEY,
-      total REAL NOT NULL,
-      payment_method TEXT NOT NULL,
-      vendedor TEXT NOT NULL,
-      loja TEXT NOT NULL,
-      items TEXT NOT NULL,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      synced INTEGER DEFAULT 0
-    )
-  `);
+  const storeCount = await get('SELECT count(*) as count FROM stores');
+  if (storeCount.count === 0) {
+    await run('INSERT INTO stores (id, name) VALUES ("1", "Loja Centro"), ("2", "Loja Avenida"), ("3", "Loja Shopping")');
+  }
 
-  const countRow = await get('SELECT count(*) as count FROM products');
-  if (countRow.count === 0) {
-    await run('INSERT INTO products (id, barcode, name, price, image) VALUES (?, ?, ?, ?, ?)', ['1', '123', 'Smartphone XYZ 128GB', 2500.00, 'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=150&h=150&fit=crop']);
-    await run('INSERT INTO products (id, barcode, name, price, image) VALUES (?, ?, ?, ?, ?)', ['2', '456', 'Cabo Carregador Turbo 2M', 45.90, 'https://images.unsplash.com/photo-1583863788434-e58a36330cf0?w=150&h=150&fit=crop']);
-    await run('INSERT INTO products (id, barcode, name, price, image) VALUES (?, ?, ?, ?, ?)', ['3', '789', 'Fone Bluetooth Pro Noise Cancelling', 350.00, 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=150&h=150&fit=crop']);
-    await run('INSERT INTO products (id, barcode, name, price, image) VALUES (?, ?, ?, ?, ?)', ['4', '111', 'Película de Vidro 3D', 25.00, 'https://images.unsplash.com/photo-1541560052-5e137f229371?w=150&h=150&fit=crop']);
+  const productCount = await get('SELECT count(*) as count FROM products');
+  if (productCount.count === 0) {
+    const accessores = [
+      ['Cabo iPhone Lightning 1M', '1001', 45.00],
+      ['Carregador Turbo 20W Tipo-C', '1002', 89.90],
+      ['Película 3D iPhone 13/14', '1003', 25.00],
+      ['Capa Silicone iPhone 13 Black', '1004', 35.00],
+      ['Fone Bluetooth AirDots 2', '1005', 120.00],
+      ['Suporte Veicular Magnético', '1006', 29.90],
+      ['Cabo USB-C para USB-C 2M', '1007', 49.00],
+      ['Carregador Veicular 2 Portas', '1008', 39.00],
+      ['Fone Ouvido P2 com Microfone', '1009', 19.90],
+      ['Película Cerâmica iPhone 11', '1010', 30.00],
+      ['Cabo Micro-USB 1M Resistente', '1011', 15.00],
+      ['Cartão de Memória 64GB Classe 10', '1012', 55.00],
+      ['Power Bank 10000mAh Slim', '1013', 149.00],
+      ['Adaptador P2 para Tipo-C', '1014', 25.00],
+      ['Anel Suporte Ring Holder Silver', '1015', 10.00]
+    ];
+
+    for (const [name, barcode, price] of accessores) {
+      const id = crypto.randomUUID();
+      await run('INSERT INTO products (id, barcode, name, price) VALUES (?, ?, ?, ?)', [id, barcode, name, price]);
+      // Adicionar 100 unidades em cada uma das 3 lojas
+      await run('INSERT INTO inventory (product_id, store_id, quantity) VALUES (?, "1", 100)', [id]);
+      await run('INSERT INTO inventory (product_id, store_id, quantity) VALUES (?, "2", 100)', [id]);
+      await run('INSERT INTO inventory (product_id, store_id, quantity) VALUES (?, "3", 100)', [id]);
+    }
   }
 };
 
