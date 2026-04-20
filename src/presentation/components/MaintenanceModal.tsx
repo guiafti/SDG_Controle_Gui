@@ -19,8 +19,8 @@ const MaintenanceModal: React.FC<MaintenanceModalProps> = ({ isOpen, onClose, on
   };
 
   return (
-    <div id="modal-manutencao" className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[60] flex items-center justify-center">
-      <div className="bg-white p-8 rounded-2xl shadow-2xl max-w-md w-full mx-4 transform transition-all">
+    <div id="modal-manutencao" className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
+      <div className="bg-white p-8 rounded-3xl shadow-2xl max-w-md w-full">
         <div className="flex justify-between items-center mb-6">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center text-2xl">

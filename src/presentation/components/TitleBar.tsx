@@ -7,7 +7,7 @@ interface TitleBarProps {
 const TitleBar: React.FC<TitleBarProps> = ({ logo }) => {
   return (
     <div 
-      className="h-10 w-full bg-slate-900 flex items-center justify-between px-4 select-none shrink-0 border-b border-slate-800 z-[100]" 
+      className="h-10 w-full bg-slate-900 flex items-center justify-between px-4 select-none shrink-0 border-b border-slate-800 z-[999] relative" 
       style={{ WebkitAppRegion: 'drag' } as any}
     >
       <div className="flex items-center gap-2 text-slate-400">

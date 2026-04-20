@@ -25,6 +25,7 @@ const adjustColor = (color: string, amount: number) => {
 const App: React.FC = () => {
   const [view, setView] = useState<'pdv' | 'admin'>('admin');
   const [adminSubView, setAdminSubView] = useState('dashboard');
+  const [userRole, setUserRole] = useState('');
   const [isLoginOpen, setIsLoginOpen] = useState(true);
   const [isMaintenanceOpen, setIsMaintenanceOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -73,11 +74,12 @@ const App: React.FC = () => {
     return () => window.removeEventListener('settings-updated', handleSettingsUpdated);
   }, []);
 
-  const handleLogin = (lojaNome: string, vendedor: string) => {
+  const handleLogin = (lojaNome: string, vendedor: string, role: string) => {
     const storeMap: Record<string, string> = { 'Loja Centro': '1', 'Loja Avenida': '2', 'Loja Shopping': '3' };
     setLoja(lojaNome);
     setLojaId(storeMap[lojaNome] || '1');
     setVendedor(vendedor);
+    setUserRole(role);
     setPdvConfigurado(true);
     setIsLoginOpen(false);
     setView('pdv');
@@ -169,7 +171,7 @@ const App: React.FC = () => {
   const renderAdminView = () => {
     switch (adminSubView) {
       case 'dashboard': return <Dashboard />;
-      case 'inventory': return <Inventory />;
+      case 'inventory': return <Inventory role={userRole} />;
       case 'comissoes': return <Commissions />;
       case 'users': return <Users />;
       case 'settings': return <Settings />;
@@ -198,7 +200,7 @@ const App: React.FC = () => {
         )}
         {view === 'admin' && (
           <div id="app-container" className="flex h-full w-full">
-            <Sidebar activeView={adminSubView} onSwitchView={setAdminSubView} onOpenPDV={() => { if (!pdvConfigurado) setIsLoginOpen(true); else setView('pdv'); }} logo={logoApp} />
+            <Sidebar activeView={adminSubView} onSwitchView={setAdminSubView} onOpenPDV={() => { if (!pdvConfigurado) setIsLoginOpen(true); else setView('pdv'); }} logo={logoApp} role={userRole} />
             <main className="flex-1 overflow-y-auto bg-slate-50 flex flex-col relative">
               <AdminHeader title={
                 adminSubView === 'dashboard' ? 'Visão Geral (Dashboard)' : 

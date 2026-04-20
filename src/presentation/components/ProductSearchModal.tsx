@@ -34,9 +34,9 @@ const ProductSearchModal: React.FC<ProductSearchModalProps> = ({ isOpen, onClose
   );
 
   return (
-    <div className="fixed inset-0 bg-slate-900/90 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-      <div className="bg-white rounded-[40px] shadow-2xl w-full max-w-3xl overflow-hidden transform animate-in fade-in zoom-in duration-200 flex flex-col max-h-[85vh]">
-        <div className="bg-brand-600 p-8 text-white shrink-0 flex justify-between items-center">
+    <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[200] flex items-center justify-center p-4 pt-14">
+      <div className="bg-white rounded-[32px] shadow-2xl w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh]">
+        <div className="bg-brand-600 p-6 text-white shrink-0 flex justify-between items-center">
           <div>
             <h3 className="text-2xl font-black uppercase tracking-tighter italic">Pesquisa Manual</h3>
             <p className="text-brand-100 text-xs font-bold uppercase tracking-widest mt-1 opacity-70">

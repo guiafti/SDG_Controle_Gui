@@ -57,7 +57,9 @@ export const initDatabase = async () => {
     price REAL NOT NULL, 
     image TEXT, 
     category_id TEXT,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    synced INTEGER DEFAULT 0,
+    archived INTEGER DEFAULT 0
   )`);
   
   await run(`CREATE TABLE IF NOT EXISTS inventory (
@@ -81,14 +83,21 @@ export const initDatabase = async () => {
     synced INTEGER DEFAULT 0
   )`);
 
-  // Migração: Adicionar coluna 'discount' caso a tabela já exista e não a tenha
+  // Migrações
   try {
     await run(`ALTER TABLE sales ADD COLUMN discount REAL DEFAULT 0`);
-    console.log('[BANCO] Migração: Coluna discount adicionada na tabela sales.');
+  } catch (e: any) {}
+
+  try {
+    await run(`ALTER TABLE products ADD COLUMN synced INTEGER DEFAULT 0`);
+  } catch (e: any) {}
+
+  try {
+    await run(`ALTER TABLE products ADD COLUMN archived INTEGER DEFAULT 0`);
+    console.log('[BANCO] Migração: Coluna archived adicionada na tabela products.');
   } catch (e: any) {
-    // Ignorar erro se a coluna já existir (SQLITE_ERROR: duplicate column name)
     if (!e.message.includes('duplicate column name')) {
-      console.error('[BANCO] Erro ao adicionar coluna discount:', e);
+      console.error('[BANCO] Erro ao adicionar coluna archived:', e);
     }
   }
 

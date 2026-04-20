@@ -1,9 +1,20 @@
-import { app, BrowserWindow, ipcMain } from 'electron';
+import { app, BrowserWindow, ipcMain, protocol, net } from 'electron';
 import * as path from 'path';
+import * as fs from 'fs';
+import { pathToFileURL } from 'url';
 import { initDatabase, get, run, query } from './database';
 import { GuardianProtocol } from './GuardianProtocol';
 import { SyncEngine } from './SyncEngine';
 import { randomUUID } from 'node:crypto';
+
+// Registrar privilégios do protocolo ANTES do app ready
+protocol.registerSchemesAsPrivileged([
+  { scheme: 'local-img', privileges: { standard: true, secure: true, supportFetchAPI: true } }
+]);
+
+const UPLOAD_PATH = path.join(app.getPath('userData'), 'product_images');
+if (!fs.existsSync(UPLOAD_PATH)) fs.mkdirSync(UPLOAD_PATH, { recursive: true });
+
 function createWindow() {
   const win = new BrowserWindow({
     width: 1200,
@@ -39,6 +50,26 @@ function createWindow() {
 app.whenReady().then(async () => {
   try {
     console.log('[SISTEMA] Iniciando ambiente...', process.env.NODE_ENV || 'development');
+    
+    // Handler para o protocolo customizado de imagens (Correção definitiva para Windows)
+    protocol.handle('local-img', (request) => {
+      try {
+        const urlPath = request.url.replace('local-img://', '');
+        const fileName = path.basename(decodeURIComponent(urlPath));
+        const filePath = path.join(UPLOAD_PATH, fileName);
+        
+        if (!fs.existsSync(filePath)) {
+          console.warn(`[SISTEMA] Imagem não encontrada: ${filePath}`);
+          return new Response('Not Found', { status: 404 });
+        }
+        
+        return net.fetch(pathToFileURL(filePath).toString());
+      } catch (e) {
+        console.error('[SISTEMA] Erro no protocolo local-img:', e);
+        return new Response('Error', { status: 500 });
+      }
+    });
+
     await initDatabase();
     createWindow();
     SyncEngine.start();
@@ -52,22 +83,37 @@ app.whenReady().then(async () => {
 const cleanText = (val: any) => String(val || '').trim().toUpperCase();
 const cleanBarcode = (val: any) => String(val || '').trim().replace(/\D/g, ''); // Apenas números no código
 
+ipcMain.handle('upload-product-image', async (_, { barcode, base64Data }) => {
+  try {
+    const fileName = `${barcode}.png`;
+    const filePath = path.join(UPLOAD_PATH, fileName);
+    const buffer = Buffer.from(base64Data.split(',')[1], 'base64');
+    fs.writeFileSync(filePath, buffer);
+    return { success: true, fileName };
+  } catch (error) {
+    console.error('Erro ao salvar imagem:', error);
+    return { success: false };
+  }
+});
+
 ipcMain.handle('save-manual-product', async (_, p: any) => {
   try {
     const name = cleanText(p.name);
     const barcode = cleanBarcode(p.barcode);
     const price = Number(p.price) || 0;
+    const image = p.image || null;
 
     if (!name || !barcode) return { success: false, error: 'DADOS INCOMPLETOS!' };
 
     if (p.id) {
-      await run('UPDATE products SET name = ?, barcode = ?, price = ? WHERE id = ?', [name, barcode, price, p.id]);
+      // Ao editar, resetamos o 'synced' para 0 para que a nuvem receba a atualização
+      await run('UPDATE products SET name = ?, barcode = ?, price = ?, image = ?, synced = 0 WHERE id = ?', [name, barcode, price, image, p.id]);
     } else {
       const existing = await get('SELECT id FROM products WHERE barcode = ?', [barcode]);
       if (existing) return { success: false, error: 'ESSE CÓDIGO JÁ EXISTE NO SISTEMA!' };
 
       const newId = randomUUID();
-      await run('INSERT INTO products (id, name, barcode, price) VALUES (?, ?, ?, ?)', [newId, name, barcode, price]);
+      await run('INSERT INTO products (id, name, barcode, price, image) VALUES (?, ?, ?, ?, ?)', [newId, name, barcode, price, image]);
       await run('INSERT OR IGNORE INTO inventory (product_id, store_id, quantity) VALUES (?, "1", 0), (?, "2", 0), (?, "3", 0)', [newId, newId, newId]);
     }
     return { success: true };
@@ -77,13 +123,31 @@ ipcMain.handle('save-manual-product', async (_, p: any) => {
   }
 });
 
+ipcMain.handle('archive-product', async (_, { id, archived }) => {
+  try {
+    await run('UPDATE products SET archived = ?, synced = 0 WHERE id = ?', [archived ? 1 : 0, id]);
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: 'ERRO AO ARQUIVAR' };
+  }
+});
+
+ipcMain.handle('update-inventory-quantity', async (_, { productId, storeId, quantity }) => {
+  try {
+    await run('INSERT OR REPLACE INTO inventory (product_id, store_id, quantity) VALUES (?, ?, ?)', [productId, storeId, quantity]);
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: 'ERRO AO ATUALIZAR ESTOQUE' };
+  }
+});
+
 ipcMain.handle('get-all-products', async () => {
   return await query(`
     SELECT p.*, 
     COALESCE((SELECT quantity FROM inventory WHERE product_id = p.id AND store_id = '1'), 0) as stock_1,
     COALESCE((SELECT quantity FROM inventory WHERE product_id = p.id AND store_id = '2'), 0) as stock_2,
     COALESCE((SELECT quantity FROM inventory WHERE product_id = p.id AND store_id = '3'), 0) as stock_3
-    FROM products p ORDER BY p.name ASC
+    FROM products p ORDER BY p.archived ASC, p.name ASC
   `);
 });
 
@@ -94,7 +158,7 @@ ipcMain.handle('get-sync-status', async () => {
 });
 
 ipcMain.handle('get-product-by-barcode', async (_, barcode: string, storeId: string) => {
-  const product = await get('SELECT * FROM products WHERE barcode = ?', [cleanBarcode(barcode)]);
+  const product = await get('SELECT * FROM products WHERE barcode = ? AND archived = 0', [cleanBarcode(barcode)]);
   if (product && storeId) {
     const stock = await get('SELECT quantity FROM inventory WHERE product_id = ? AND store_id = ?', [product.id, storeId]);
     product.stock = stock ? stock.quantity : 0;

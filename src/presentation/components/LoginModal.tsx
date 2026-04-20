@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 
 interface LoginModalProps {
   isOpen: boolean;
-  onLogin: (loja: string, vendedor: string) => void;
+  onLogin: (loja: string, vendedor: string, role: string) => void;
   onGoToAdmin: () => void;
 }
 
@@ -37,7 +37,7 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onLogin, onGoToAdmin })
     try {
       const user = await window.api.login({ username: vendedor, password });
       if (user) {
-        onLogin(loja, vendedor);
+        onLogin(loja, vendedor, user.role);
       } else {
         setError('SENHA INCORRETA!');
       }
@@ -47,8 +47,8 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onLogin, onGoToAdmin })
   };
 
   return (
-    <div id="modal-setup" className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[60] flex items-center justify-center">
-      <div className="bg-white p-8 rounded-2xl shadow-2xl max-w-md w-full mx-4 transform transition-all">
+    <div id="modal-setup" className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
+      <div className="bg-white p-8 rounded-3xl shadow-2xl max-w-md w-full">
         <div className="text-center mb-6">
           <div className="w-16 h-16 bg-brand-100 text-brand-600 rounded-full flex items-center justify-center text-3xl mx-auto mb-4">
             <i className="ph ph-lock-key"></i>

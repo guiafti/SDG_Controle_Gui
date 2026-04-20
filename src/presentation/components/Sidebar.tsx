@@ -5,9 +5,10 @@ interface SidebarProps {
   onSwitchView: (view: string) => void;
   onOpenPDV: () => void;
   logo?: string;
+  role?: string;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ activeView, onSwitchView, onOpenPDV, logo }) => {
+const Sidebar: React.FC<SidebarProps> = ({ activeView, onSwitchView, onOpenPDV, logo, role }) => {
   return (
     <aside className="w-64 bg-slate-900 text-slate-300 flex flex-col shadow-xl z-20 relative">
       <div className="p-6 border-b border-slate-800 flex items-center gap-3">
@@ -47,29 +48,33 @@ const Sidebar: React.FC<SidebarProps> = ({ activeView, onSwitchView, onOpenPDV, 
           Estoque / Produtos
         </button>
         
-        <button 
-          onClick={() => onSwitchView('comissoes')}
-          className={`nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-lg font-medium ${activeView === 'comissoes' ? 'bg-brand-500 text-white' : 'hover:bg-slate-800 text-slate-300 hover:text-white'}`}
-        >
-          <i className="ph ph-money text-xl"></i>
-          Comissões
-        </button>
+        {role === 'admin' && (
+          <>
+            <button 
+              onClick={() => onSwitchView('comissoes')}
+              className={`nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-lg font-medium ${activeView === 'comissoes' ? 'bg-brand-500 text-white' : 'hover:bg-slate-800 text-slate-300 hover:text-white'}`}
+            >
+              <i className="ph ph-money text-xl"></i>
+              Comissões
+            </button>
 
-        <button 
-          onClick={() => onSwitchView('users')}
-          className={`nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-lg font-medium ${activeView === 'users' ? 'bg-brand-500 text-white' : 'hover:bg-slate-800 text-slate-300 hover:text-white'}`}
-        >
-          <i className="ph ph-users text-xl"></i>
-          Equipe / Usuários
-        </button>
+            <button 
+              onClick={() => onSwitchView('users')}
+              className={`nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-lg font-medium ${activeView === 'users' ? 'bg-brand-500 text-white' : 'hover:bg-slate-800 text-slate-300 hover:text-white'}`}
+            >
+              <i className="ph ph-users text-xl"></i>
+              Equipe / Usuários
+            </button>
 
-        <button 
-          onClick={() => onSwitchView('settings')}
-          className={`nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-lg font-medium mt-auto ${activeView === 'settings' ? 'bg-brand-500 text-white' : 'hover:bg-slate-800 text-slate-300 hover:text-white'}`}
-        >
-          <i className="ph ph-paint-brush-broad text-xl"></i>
-          Personalização
-        </button>
+            <button 
+              onClick={() => onSwitchView('settings')}
+              className={`nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-lg font-medium mt-auto ${activeView === 'settings' ? 'bg-brand-500 text-white' : 'hover:bg-slate-800 text-slate-300 hover:text-white'}`}
+            >
+              <i className="ph ph-paint-brush-broad text-xl"></i>
+              Personalização
+            </button>
+          </>
+        )}
       </nav>
     </aside>
   );
