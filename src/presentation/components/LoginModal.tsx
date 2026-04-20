@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 
 interface LoginModalProps {
   isOpen: boolean;
@@ -7,14 +7,43 @@ interface LoginModalProps {
 }
 
 const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onLogin, onGoToAdmin }) => {
+  const [stores, setStores] = useState<any[]>([]);
+  const [users, setUsers] = useState<any[]>([]);
+  const [loja, setLoja] = useState('');
+  const [vendedor, setVendedor] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const s = await window.api.getStores();
+        const u = await window.api.getUsers();
+        setStores(s);
+        setUsers(u);
+      } catch (e) {
+        console.error('Erro ao carregar dados de login:', e);
+      }
+    };
+    if (isOpen) fetchData();
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const formData = new FormData(e.target as HTMLFormElement);
-    const loja = formData.get('loja') as string;
-    const vendedor = formData.get('vendedor') as string;
-    onLogin(loja, vendedor);
+    setError('');
+
+    try {
+      const user = await window.api.login({ username: vendedor, password });
+      if (user) {
+        onLogin(loja, vendedor);
+      } else {
+        setError('SENHA INCORRETA!');
+      }
+    } catch (e) {
+      setError('ERRO AO VALIDAR ACESSO');
+    }
   };
 
   return (
@@ -29,30 +58,50 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onLogin, onGoToAdmin })
         </div>
 
         <form id="form-setup" className="space-y-5" onSubmit={handleSubmit}>
+          {error && (
+            <div className="bg-red-50 text-red-600 p-3 rounded-lg text-xs font-black text-center animate-pulse">
+              ❌ {error}
+            </div>
+          )}
+          
           <div className="space-y-2">
             <label className="block text-sm font-semibold text-slate-700">Qual é a Loja atual?</label>
-            <select name="loja" required className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500 p-3 outline-none">
+            <select 
+              name="loja" 
+              required 
+              value={loja}
+              onChange={(e) => setLoja(e.target.value)}
+              className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500 p-3 outline-none"
+            >
               <option value="">Selecione...</option>
-              <option value="Loja Centro">Loja A (Centro)</option>
-              <option value="Loja Avenida">Loja B (Avenida)</option>
-              <option value="Loja Shopping">Loja C (Shopping)</option>
+              {stores.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
             </select>
           </div>
 
           <div className="space-y-2">
             <label className="block text-sm font-semibold text-slate-700">Vendedor Operador</label>
-            <select name="vendedor" required className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500 p-3 outline-none">
+            <select 
+              name="vendedor" 
+              required 
+              value={vendedor}
+              onChange={(e) => setVendedor(e.target.value)}
+              className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500 p-3 outline-none"
+            >
               <option value="">Selecione...</option>
-              <option value="Carlos Silva">Carlos Silva</option>
-              <option value="Ana Beatriz">Ana Beatriz</option>
-              <option value="Roberto Alves">Roberto Alves</option>
+              {users.map(u => <option key={u.id} value={u.name}>{u.name}</option>)}
             </select>
           </div>
 
           <div className="space-y-2">
             <label className="block text-sm font-semibold text-slate-700">Senha de Acesso</label>
-            <input type="password" required placeholder="Digite sua senha..." className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500 p-3 outline-none" />
-            <p className="text-xs text-slate-400 mt-1">*Para este teste, qualquer senha será aceita.</p>
+            <input 
+              type="password" 
+              required 
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Digite sua senha..." 
+              className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500 p-3 outline-none" 
+            />
           </div>
 
           <button type="submit" className="w-full py-4 mt-2 rounded-lg bg-brand-500 text-white font-bold text-lg hover:bg-brand-600 shadow-lg shadow-brand-500/30">

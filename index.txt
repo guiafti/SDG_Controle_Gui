@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Documento</title>
+  </head>
+  <body>
+📄 Documento de Requisitos: SDG_CONTROLE
+
+  1. Visão Geral
+  O sistema é um PDV (Ponto de Venda) Desktop, focado no setor de acessórios de celulares, projetado com arquitetura Offline-first. Ele permite que as lojas operem sem interrupções de internet, garantindo que os dados de estoque e vendas
+  sejam persistidos localmente e sincronizados com a nuvem em segundo plano.
+
+  2. Requisitos Funcionais (RF)
+
+  📦 Gestão de Estoque e Produtos
+   * RF01 - Cadastro Multiloja: O estoque é segmentado por unidades (Loja Centro, Loja Avenida, Loja Shopping). O sistema entende que um produto pode ter quantidades diferentes em cada local.
+   * RF02 - Protocolo Guardião (XML): Importação em lote de produtos via arquivos XML. O protocolo valida se o produto já existe (atualiza preço/nome) ou se é novo (cria cadastro global).
+   * RF03 - Cadastro Manual Blindado: Interface para adicionar ou editar produtos manualmente com sanitização automática de textos (nomes em maiúsculas e remoção de caracteres inválidos em códigos de barras).
+   * RF04 - Download de Protocolo: Geração automática de um arquivo XML modelo para que fornecedores ou sistemas externos sigam o padrão de entrada de dados.
+
+  🛒 Frente de Caixa (PDV)
+   * RF05 - Identificação de Operador: Modal de abertura de caixa com seleção de Loja, Vendedor e Senha.
+   * RF06 - Venda por Código de Barras: Integração com leitor óptico para busca instantânea no banco local SQLite.
+   * RF07 - Lançamento de Serviços: Funcionalidade para registrar manutenções de aparelhos (OS) diretamente no fluxo de caixa.
+   * RF08 - Calculadora de Descontos: Aplicação de descontos em Reais com recálculo matemático instantâneo do total final.
+   * RF09 - Finalização de Venda: Suporte a múltiplas formas de pagamento (PIX, Cartão de Crédito/Débito, Dinheiro) com baixa automática no estoque da loja logada.
+
+  ⚙️ Inteligência de Sistema
+   * RF10 - Sync Engine (Motor de Sincronização): Processo em segundo plano que monitora vendas não enviadas e as despacha para a nuvem assim que detecta conexão.
+   * RF11 - Dashboard de Status: Visualização em tempo real do faturamento mensal e do estado da sincronização (Vendas Pendentes vs. Sincronizadas).
+
+  ---
+
+  3. Requisitos Não Funcionais (RNF)
+   * RNF01 - Offline-First: O banco de dados primário é o SQLite local.
+   * RNF02 - Fidelidade Visual: Interface baseada 100% no protótipo aprovado com Tailwind CSS.
+   * RNF03 - Integridade de Dados: O sistema impede cadastros duplicados de códigos de barras.
+   * RNF04 - Portabilidade: Executável Desktop para Windows.
+
+  ---
+
+  🛠 Análise de Problemas e Bugs
+
+  Durante o desenvolvimento, enfrentamos desafios técnicos críticos relacionados ao ambiente Windows e à comunicação entre processos. Abaixo, a análise das causas e soluções aplicadas:
+
+  1. Conflito de Compilação Nativa (Better-SQLite3)
+   * Problema: O instalador falhava ao tentar compilar o banco de dados better-sqlite3 devido à ausência de ferramentas de C++20 no Windows.
+   * Causa: Dependência de bibliotecas nativas que exigem um ambiente de desenvolvimento C++ pesado.
+   * Solução: Migração para o sqlite3 padrão, que fornece binários pré-compilados e maior estabilidade em sistemas Windows.
+
+  2. Quebra da Ponte de Comunicação (IPC Bridge)
+   * Problema: Erro de undefined ao tentar chamar funções do banco de dados (Ex: getSyncStatus).
+   * Causa: O Electron não estava encontrando o arquivo preload.js porque ele estava sendo traduzido de forma incorreta ou lenta pelo compilador TypeScript.
+   * Solução: Convertemos o preload para JavaScript puro e ajustamos o main.ts para usar caminhos absolutos (path.join).
+
+  3. Falha no Salvamento Manual (Erro Crítico)
+   * Problema: O formulário de cadastro não enviava os dados ou gerava erro de "comunicação".
+   * Causa:
+       1. O React perdia a referência dos inputs durante a renderização.
+       2. O uso da função crypto.randomUUID() falhava no Processo Principal sem a importação correta.
+       3. Códigos de barras muito longos eram interpretados como números, causando erro de estouro no banco.
+   * Solução:
+       1. Implementamos Estados Controlados no React para os inputs.
+       2. Importamos o módulo crypto nativo do Node.js.
+       3. Criamos o Filtro de Pureza (Sanitização) que força o código de barras a ser sempre uma String de texto, independente do tamanho.
+
+  4. Bloqueio de Download no Electron
+   * Problema: O botão de "Baixar Modelo XML" não fazia nada.
+   * Causa: Medidas de segurança do Electron impedem a criação de elementos de download dinâmicos sem a devida permissão ou manipulação de Blob.
+   * Solução: Refatoramos a função para criar um link temporário no DOM e forçar o gatilho de download via JavaScript nativo compatível com o navegador interno do Electron.
+
+  ---
+
+  Status Atual do Sistema:
+   * Estabilidade: 🟢 Alta
+   * Comunicação UI-Main: 🟢 Funcional
+   * Persistência de Dados: 🟢 Funcional (SQLite)
+   * Layout: 🟢 100% Fiel ao Protótipo
+
+  Este documento serve como a "Certidão de Nascimento" técnica do seu sistema e está pronto para ser apresentado como parte da entrega. Algo mais que deseja detalhar?
+  </body>
+</html>

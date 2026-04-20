@@ -1,11 +1,15 @@
 import sqlite3 from 'sqlite3';
 import path from 'path';
 import { app } from 'electron';
+import { randomUUID } from 'node:crypto'; // Use o prefixo 'node:' para garantir compatibilidade
 
-const dbPath = process.env.NODE_ENV === 'development' 
-  ? path.join(__dirname, '../../local.db')
+const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
+
+const dbPath = isDev 
+  ? path.join(process.cwd(), 'local.db')
   : path.join(app.getPath('userData'), 'local.db');
 
+console.log('[BANCO] Localização:', dbPath);
 const db = new sqlite3.Database(dbPath);
 
 export const query = (sql: string, params: any[] = []): Promise<any[]> => {
@@ -36,14 +40,70 @@ export const run = (sql: string, params: any[] = []): Promise<any> => {
 };
 
 export const initDatabase = async () => {
+  // ESTRUTURA: Lojas e Usuários
   await run(`CREATE TABLE IF NOT EXISTS stores (id TEXT PRIMARY KEY, name TEXT UNIQUE NOT NULL)`);
-  await run(`CREATE TABLE IF NOT EXISTS products (id TEXT PRIMARY KEY, barcode TEXT UNIQUE, name TEXT NOT NULL, price REAL NOT NULL, image TEXT, category_id TEXT)`);
-  await run(`CREATE TABLE IF NOT EXISTS inventory (product_id TEXT, store_id TEXT, quantity INTEGER DEFAULT 0, min_stock INTEGER DEFAULT 2, PRIMARY KEY(product_id, store_id))`);
-  await run(`CREATE TABLE IF NOT EXISTS sales (id TEXT PRIMARY KEY, total REAL NOT NULL, payment_method TEXT NOT NULL, vendedor TEXT NOT NULL, store_id TEXT, items TEXT NOT NULL, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, synced INTEGER DEFAULT 0)`);
+  await run(`CREATE TABLE IF NOT EXISTS users (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    password TEXT NOT NULL,
+    role TEXT DEFAULT 'vendedor'
+  )`);
+  
+  // CATÁLOGO BLINDADO: Produtos higienizados (Foco em IDs e Matrizes)
+  await run(`CREATE TABLE IF NOT EXISTS products (
+    id TEXT PRIMARY KEY, 
+    barcode TEXT UNIQUE, 
+    name TEXT NOT NULL, 
+    price REAL NOT NULL, 
+    image TEXT, 
+    category_id TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  )`);
+  
+  await run(`CREATE TABLE IF NOT EXISTS inventory (
+    product_id TEXT, 
+    store_id TEXT, 
+    quantity INTEGER DEFAULT 0, 
+    min_stock INTEGER DEFAULT 2, 
+    PRIMARY KEY(product_id, store_id)
+  )`);
+
+  // LIVRO CAIXA (VENDAS): Registro exato e sem atrito
+  await run(`CREATE TABLE IF NOT EXISTS sales (
+    id TEXT PRIMARY KEY, 
+    total REAL NOT NULL, 
+    discount REAL DEFAULT 0,
+    payment_method TEXT NOT NULL, 
+    vendedor TEXT NOT NULL, 
+    store_id TEXT, 
+    items TEXT NOT NULL, 
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP, 
+    synced INTEGER DEFAULT 0
+  )`);
+
+  // ACERTO DE CONTAS: Comissões e Finanças Matemáticas
+  await run(`CREATE TABLE IF NOT EXISTS commissions (
+    id TEXT PRIMARY KEY,
+    sale_id TEXT,
+    vendedor TEXT NOT NULL,
+    value REAL NOT NULL,
+    percentage REAL NOT NULL,
+    status TEXT DEFAULT 'pending',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(sale_id) REFERENCES sales(id)
+  )`);
 
   const storeCount = await get('SELECT count(*) as count FROM stores');
   if (storeCount.count === 0) {
     await run('INSERT INTO stores (id, name) VALUES ("1", "Loja Centro"), ("2", "Loja Avenida"), ("3", "Loja Shopping")');
+  }
+
+  const userCount = await get('SELECT count(*) as count FROM users');
+  if (userCount.count === 0) {
+    await run('INSERT INTO users (id, name, password, role) VALUES (?, ?, ?, ?)', [randomUUID(), 'Carlos Silva', '1234', 'vendedor']);
+    await run('INSERT INTO users (id, name, password, role) VALUES (?, ?, ?, ?)', [randomUUID(), 'Ana Beatriz', '1234', 'vendedor']);
+    await run('INSERT INTO users (id, name, password, role) VALUES (?, ?, ?, ?)', [randomUUID(), 'Roberto Alves', '1234', 'vendedor']);
+    await run('INSERT INTO users (id, name, password, role) VALUES (?, ?, ?, ?)', [randomUUID(), 'Admin', 'admin', 'admin']);
   }
 
   const productCount = await get('SELECT count(*) as count FROM products');
@@ -67,7 +127,7 @@ export const initDatabase = async () => {
     ];
 
     for (const [name, barcode, price] of accessores) {
-      const id = crypto.randomUUID();
+      const id = randomUUID();
       await run('INSERT INTO products (id, barcode, name, price) VALUES (?, ?, ?, ?)', [id, barcode, name, price]);
       // Adicionar 100 unidades em cada uma das 3 lojas
       await run('INSERT INTO inventory (product_id, store_id, quantity) VALUES (?, "1", 100)', [id]);

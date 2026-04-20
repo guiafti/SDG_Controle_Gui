@@ -4,9 +4,9 @@
   "main": "dist/main/main.js",
   "description": "Sistema de PDV Desktop Offline-first",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc && vite build && electron-builder",
-    "electron:dev": "concurrently \"npm run dev\" \"wait-on http://localhost:5173 && npx esbuild src/main/main.ts --bundle --platform=node --external:electron --external:sqlite3 --outfile=dist/main/main.js && npx esbuild src/main/preload.ts --bundle --platform=node --external:electron --outfile=dist/main/preload.js && electron .\""
+    "dev": "vite --host 127.0.0.1",
+    "build:main": "npx esbuild src/main/main.ts --bundle --platform=node --external:electron --external:sqlite3 --outfile=dist/main/main.js && npx esbuild src/main/preload.ts --bundle --platform=node --external:electron --outfile=dist/main/preload.js",
+    "electron:dev": "npm run build:main && npx concurrently -k \"npm run dev\" \"npx electron .\""
   },
   "dependencies": {
     "react": "^18.2.0",

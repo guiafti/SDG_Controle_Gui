@@ -1,5 +1,6 @@
 import { run, get } from './database';
 import { XMLParser } from 'fast-xml-parser';
+import { randomUUID } from 'node:crypto';
 
 interface ProductImport {
   barcode: string;
@@ -43,7 +44,7 @@ export class GuardianProtocol {
       let productId = existingProduct?.id;
 
       if (!productId) {
-        productId = crypto.randomUUID();
+        productId = randomUUID();
         await run(`INSERT INTO products (id, barcode, name, price, image) VALUES (?, ?, ?, ?, ?)`, 
           [productId, p.barcode, p.name, p.price, p.image || '']);
         newProductsCount++;

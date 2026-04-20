@@ -57,6 +57,48 @@ const Inventory: React.FC = () => {
     }
   };
 
+  const handleImportXML = async () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.xml';
+    input.onchange = async (e: any) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      
+      const reader = new FileReader();
+      reader.onload = async (event: any) => {
+        const xmlData = event.target.result;
+        const storeId = prompt('Para qual loja deseja importar? (1, 2 ou 3)', '1');
+        if (!storeId) return;
+
+        try {
+          const result = await window.api.importXmlProducts(xmlData, storeId);
+          alert(`PROTOCOLO PROCESSADO!\nNovos Produtos: ${result.newProducts}\nEstoques Atualizados: ${result.stockUpdates}`);
+          fetchProducts();
+        } catch (err) {
+          alert('ERRO AO PROCESSAR XML');
+        }
+      };
+      reader.readAsText(file);
+    };
+    input.click();
+  };
+
+  const handleDownloadTemplate = async () => {
+    try {
+      const template = await window.api.downloadProtocolTemplate();
+      const blob = new Blob([template], { type: 'text/xml' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'modelo_protocolo_guardiao.xml';
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      alert('ERRO AO GERAR MODELO');
+    }
+  };
+
   return (
     <div className="p-8 max-w-7xl mx-auto w-full font-sans">
       <div className="flex justify-between items-center mb-10">
@@ -64,13 +106,29 @@ const Inventory: React.FC = () => {
           <h2 className="text-3xl font-black text-slate-900 tracking-tighter italic">ESTOQUE MULTILOJA</h2>
           <p className="text-slate-400 font-bold text-xs uppercase tracking-widest">Painel de Controle de Inventário</p>
         </div>
-        <button 
-          onClick={() => openModal()}
-          className="bg-brand-600 text-white px-10 py-5 rounded-[20px] font-black flex items-center gap-3 hover:bg-brand-700 shadow-2xl shadow-brand-500/40 active:scale-95 transition-all"
-        >
-          <i className="ph ph-plus-circle text-2xl"></i>
-          NOVO ACESSÓRIO
-        </button>
+        <div className="flex gap-4">
+          <button 
+            onClick={handleDownloadTemplate}
+            className="bg-slate-200 text-slate-600 px-6 py-5 rounded-[20px] font-black flex items-center gap-3 hover:bg-slate-300 transition-all"
+          >
+            <i className="ph ph-download-simple text-2xl"></i>
+            MODELO XML
+          </button>
+          <button 
+            onClick={handleImportXML}
+            className="bg-blue-600 text-white px-6 py-5 rounded-[20px] font-black flex items-center gap-3 hover:bg-blue-700 shadow-2xl shadow-blue-500/40 transition-all"
+          >
+            <i className="ph ph-file-arrow-up text-2xl"></i>
+            IMPORTAR XML
+          </button>
+          <button 
+            onClick={() => openModal()}
+            className="bg-brand-600 text-white px-8 py-5 rounded-[20px] font-black flex items-center gap-3 hover:bg-brand-700 shadow-2xl shadow-brand-500/40 active:scale-95 transition-all"
+          >
+            <i className="ph ph-plus-circle text-2xl"></i>
+            NOVO ACESSÓRIO
+          </button>
+        </div>
       </div>
 
       <div className="bg-white rounded-[32px] shadow-2xl shadow-slate-200/50 border border-slate-100 overflow-hidden">
@@ -127,7 +185,7 @@ const Inventory: React.FC = () => {
               <div>
                 <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Nome Comercial do Produto</label>
                 <input 
-                  value={formName}
+                  value={formName || ''}
                   onChange={(e) => setFormName(e.target.value)}
                   placeholder="EX: CAPA MAGSAFE IPHONE 15"
                   className="w-full p-5 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-brand-500 font-black text-slate-700 transition-all uppercase" 
@@ -138,7 +196,7 @@ const Inventory: React.FC = () => {
                 <div>
                   <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Código de Barras (EAN)</label>
                   <input 
-                    value={formBarcode}
+                    value={formBarcode || ''}
                     onChange={(e) => setFormBarcode(e.target.value)}
                     placeholder="0000000000000"
                     className="w-full p-5 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-brand-500 font-mono font-black text-lg" 
@@ -149,7 +207,7 @@ const Inventory: React.FC = () => {
                   <input 
                     type="number"
                     step="0.01"
-                    value={formPrice}
+                    value={formPrice || ''}
                     onChange={(e) => setFormPrice(e.target.value)}
                     placeholder="0,00"
                     className="w-full p-5 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-brand-500 font-black text-brand-600 text-xl" 

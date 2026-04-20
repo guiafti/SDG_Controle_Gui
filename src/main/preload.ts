@@ -8,4 +8,9 @@ contextBridge.exposeInMainWorld('api', {
   importXmlProducts: (xmlData: string, storeId: string) => ipcRenderer.invoke('import-xml-products', xmlData, storeId),
   getSyncStatus: () => ipcRenderer.invoke('get-sync-status'),
   downloadProtocolTemplate: () => ipcRenderer.invoke('download-protocol-template'),
+  getStores: () => ipcRenderer.invoke('get-stores'),
+  getUsers: () => ipcRenderer.invoke('get-users'),
+  login: (credentials: any) => ipcRenderer.invoke('login', credentials),
+  getCommissions: () => ipcRenderer.invoke('get-commissions'),
+  getDashboardStats: () => ipcRenderer.invoke('get-dashboard-stats'),
 });

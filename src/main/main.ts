@@ -3,7 +3,7 @@ import * as path from 'path';
 import { initDatabase, get, run, query } from './database';
 import { GuardianProtocol } from './GuardianProtocol';
 import { SyncEngine } from './SyncEngine';
-import { randomUUID } from 'crypto';
+import { randomUUID } from 'node:crypto';
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -16,8 +16,19 @@ function createWindow() {
     },
   });
 
-  if (process.env.NODE_ENV === 'development') {
-    win.loadURL('http://localhost:5173');
+  const isDev = !app.isPackaged;
+  const devUrl = 'http://127.0.0.1:5173';
+
+  if (isDev) {
+    // Tenta carregar a URL. Se falhar (Vite ainda subindo), tenta novamente em 1s
+    const loadDevUrl = () => {
+      win.loadURL(devUrl).catch(() => {
+        console.log('[SISTEMA] Aguardando Vite...');
+        setTimeout(loadDevUrl, 1000);
+      });
+    };
+    loadDevUrl();
+    win.webContents.openDevTools();
   } else {
     win.loadFile(path.join(__dirname, '../index.html'));
   }
@@ -25,6 +36,7 @@ function createWindow() {
 
 app.whenReady().then(async () => {
   try {
+    console.log('[SISTEMA] Iniciando ambiente...', process.env.NODE_ENV || 'development');
     await initDatabase();
     createWindow();
     SyncEngine.start();
@@ -99,13 +111,55 @@ ipcMain.handle('download-protocol-template', async () => {
   return `<?xml version="1.0" encoding="UTF-8"?><products><item><barcode>2024</barcode><name>EXEMPLO PRODUTO</name><price>50.00</price><quantity>100</quantity></item></products>`;
 });
 
+ipcMain.handle('get-commissions', async () => {
+  return await query('SELECT * FROM commissions ORDER BY created_at DESC');
+});
+
+ipcMain.handle('get-dashboard-stats', async () => {
+  const totalSales = await get('SELECT SUM(total) as total FROM sales');
+  const monthSales = await get("SELECT SUM(total) as total FROM sales WHERE strftime('%m', created_at) = strftime('%m', 'now')");
+  
+  return {
+    totalRevenue: totalSales?.total || 0,
+    monthlyRevenue: monthSales?.total || 0
+  };
+});
+
+ipcMain.handle('get-stores', async () => {
+  return await query('SELECT * FROM stores ORDER BY name ASC');
+});
+
+ipcMain.handle('get-users', async () => {
+  return await query('SELECT id, name, role FROM users ORDER BY name ASC');
+});
+
+ipcMain.handle('login', async (_, { username, password }) => {
+  const user = await get('SELECT id, name, role FROM users WHERE name = ? AND password = ?', [username, password]);
+  return user || null;
+});
+
 ipcMain.handle('save-sale', async (_, sale: any) => {
   const saleId = randomUUID();
+  
+  // Registrar Venda
+  await run(`INSERT INTO sales (id, total, discount, payment_method, vendedor, store_id, items) VALUES (?, ?, ?, ?, ?, ?, ?)`, 
+    [saleId, sale.total, sale.discount || 0, sale.payment_method, sale.vendedor, sale.store_id, JSON.stringify(sale.items)]);
+
+  // Baixa de Estoque
   for (const item of sale.items) {
+    if (String(item.id).startsWith('OS-')) continue; // Ignorar serviços/manutenção na baixa de estoque de produtos
     await run(`UPDATE inventory SET quantity = quantity - ? WHERE product_id = ? AND store_id = ?`, [item.qtd, item.id, sale.store_id]);
   }
-  return await run(`INSERT INTO sales (id, total, payment_method, vendedor, store_id, items) VALUES (?, ?, ?, ?, ?, ?)`, 
-    [saleId, sale.total, sale.payment_method, sale.vendedor, sale.store_id, JSON.stringify(sale.items)]);
+
+  // Calcular Comissão (Ex: 10% fixo para simplificar, conforme item 6 do plano)
+  const commissionPercentage = 0.10;
+  const commissionValue = sale.total * commissionPercentage;
+  const commissionId = randomUUID();
+  
+  await run(`INSERT INTO commissions (id, sale_id, vendedor, value, percentage) VALUES (?, ?, ?, ?, ?)`,
+    [commissionId, saleId, sale.vendedor, commissionValue, commissionPercentage * 100]);
+
+  return { success: true, saleId };
 });
 
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });

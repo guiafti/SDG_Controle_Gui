@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 
 const Dashboard: React.FC = () => {
   const [syncStatus, setSyncStatus] = useState({ pending: 0, total: 0 });
+  const [stats, setStats] = useState({ totalRevenue: 0, monthlyRevenue: 0 });
   const [selectedStore, setSelectedStore] = useState('1');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -9,6 +10,9 @@ const Dashboard: React.FC = () => {
     try {
       const status = await window.api.getSyncStatus();
       setSyncStatus(status || { pending: 0, total: 0 });
+      
+      const s = await window.api.getDashboardStats();
+      setStats(s || { totalRevenue: 0, monthlyRevenue: 0 });
     } catch (e) {
       console.error(e);
     }
@@ -119,10 +123,10 @@ const Dashboard: React.FC = () => {
         {/* Faturamento */}
         <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-8">
           <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Faturamento Mensal</p>
-          <h3 className="text-4xl font-black text-slate-800 mb-2">R$ 145.200</h3>
-          <p className="text-xs font-bold text-emerald-500 flex items-center gap-1">
-            <i className="ph ph-trend-up"></i> +12% Crescimento
-          </p>
+          <h3 className="text-4xl font-black text-slate-800 mb-2">
+            {stats.monthlyRevenue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+          </h3>
+          <p className="text-xs font-bold text-slate-400">Total Acumulado: {stats.totalRevenue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
         </div>
       </div>
       
