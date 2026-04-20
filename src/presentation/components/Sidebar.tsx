@@ -67,6 +67,14 @@ const Sidebar: React.FC<SidebarProps> = ({ activeView, onSwitchView, onOpenPDV, 
             </button>
 
             <button 
+              onClick={() => onSwitchView('stores')}
+              className={`nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-lg font-medium ${activeView === 'stores' ? 'bg-brand-500 text-white' : 'hover:bg-slate-800 text-slate-300 hover:text-white'}`}
+            >
+              <i className="ph ph-buildings text-xl"></i>
+              Gerenciar Lojas
+            </button>
+
+            <button 
               onClick={() => onSwitchView('settings')}
               className={`nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-lg font-medium mt-auto ${activeView === 'settings' ? 'bg-brand-500 text-white' : 'hover:bg-slate-800 text-slate-300 hover:text-white'}`}
             >

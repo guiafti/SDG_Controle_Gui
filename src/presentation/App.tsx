@@ -13,6 +13,7 @@ import Dashboard from './pages/Dashboard';
 import Commissions from './pages/Commissions';
 import Inventory from './pages/Inventory';
 import Users from './pages/Users';
+import Stores from './pages/Stores';
 import Settings from './pages/Settings';
 import { CartItem } from '../domain/CartItem';
 
@@ -74,10 +75,9 @@ const App: React.FC = () => {
     return () => window.removeEventListener('settings-updated', handleSettingsUpdated);
   }, []);
 
-  const handleLogin = (lojaNome: string, vendedor: string, role: string) => {
-    const storeMap: Record<string, string> = { 'Loja Centro': '1', 'Loja Avenida': '2', 'Loja Shopping': '3' };
-    setLoja(lojaNome);
-    setLojaId(storeMap[lojaNome] || '1');
+  const handleLogin = (storeId: string, storeName: string, vendedor: string, role: string) => {
+    setLoja(storeName);
+    setLojaId(storeId);
     setVendedor(vendedor);
     setUserRole(role);
     setPdvConfigurado(true);
@@ -200,6 +200,7 @@ const App: React.FC = () => {
       case 'inventory': return <Inventory role={userRole} />;
       case 'comissoes': return <Commissions />;
       case 'users': return <Users />;
+      case 'stores': return <Stores />;
       case 'settings': return <Settings />;
       default: return <Dashboard />;
     }
@@ -232,7 +233,8 @@ const App: React.FC = () => {
                 adminSubView === 'dashboard' ? 'Visão Geral (Dashboard)' : 
                 adminSubView === 'inventory' ? 'Gestão de Estoque' : 
                 adminSubView === 'comissoes' ? 'Comissões' : 
-                adminSubView === 'settings' ? 'Personalização' : 'Gestão de Equipe'
+                adminSubView === 'settings' ? 'Personalização' : 
+                adminSubView === 'stores' ? 'Gerenciamento de Lojas' : 'Gestão de Equipe'
               } />
               {renderAdminView()}
             </main>

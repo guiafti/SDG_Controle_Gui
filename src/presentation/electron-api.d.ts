@@ -6,7 +6,9 @@ export interface ElectronAPI {
   importXmlProducts: (xmlData: string, storeId: string) => Promise<any>;
   getSyncStatus: () => Promise<{ pending: number, total: number }>;
   downloadProtocolTemplate: () => Promise<string>;
-  getStores: () => Promise<any[]>;
+  getStores: (includeArchived?: boolean) => Promise<any[]>;
+  saveStore: (store: {id?: string, name: string}) => Promise<{success: boolean, error?: string}>;
+  archiveStore: (data: {id: string, archived: boolean}) => Promise<{success: boolean, error?: string}>;
   getUsers: () => Promise<any[]>;
   login: (credentials: any) => Promise<any>;
   saveUser: (user: any) => Promise<any>;

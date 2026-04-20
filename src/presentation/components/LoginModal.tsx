@@ -2,14 +2,14 @@ import React, { useState, useEffect } from 'react';
 
 interface LoginModalProps {
   isOpen: boolean;
-  onLogin: (loja: string, vendedor: string, role: string) => void;
+  onLogin: (storeId: string, storeName: string, vendedor: string, role: string) => void;
   onGoToAdmin: () => void;
 }
 
 const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onLogin, onGoToAdmin }) => {
   const [stores, setStores] = useState<any[]>([]);
   const [users, setUsers] = useState<any[]>([]);
-  const [loja, setLoja] = useState('');
+  const [lojaId, setLojaId] = useState('');
   const [vendedor, setVendedor] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -37,7 +37,12 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onLogin, onGoToAdmin })
     try {
       const user = await window.api.login({ username: vendedor, password });
       if (user) {
-        onLogin(loja, vendedor, user.role);
+        const selectedStore = stores.find(s => String(s.id) === String(lojaId));
+        if (selectedStore) {
+          onLogin(lojaId, selectedStore.name, vendedor, user.role);
+        } else {
+          setError('LOJA NÃO ENCONTRADA');
+        }
       } else {
         setError('SENHA INCORRETA!');
       }
@@ -69,12 +74,12 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onLogin, onGoToAdmin })
             <select 
               name="loja" 
               required 
-              value={loja}
-              onChange={(e) => setLoja(e.target.value)}
+              value={lojaId}
+              onChange={(e) => setLojaId(e.target.value)}
               className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500 p-3 outline-none"
             >
               <option value="">Selecione...</option>
-              {stores.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
+              {stores.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
             </select>
           </div>
 

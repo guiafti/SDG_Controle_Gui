@@ -304,8 +304,33 @@ ipcMain.handle('save-settings', async (_, settingsArray: {key: string, value: st
   return { success: true };
 });
 
-ipcMain.handle('get-stores', async () => {
-  return await query('SELECT * FROM stores ORDER BY name ASC');
+ipcMain.handle('get-stores', async (_, includeArchived = false) => {
+  if (includeArchived) {
+    return await query('SELECT * FROM stores ORDER BY archived ASC, name ASC');
+  }
+  return await query('SELECT * FROM stores WHERE archived = 0 ORDER BY name ASC');
+});
+
+ipcMain.handle('save-store', async (_, { id, name }) => {
+  try {
+    if (id) {
+      await run('UPDATE stores SET name = ? WHERE id = ?', [name.trim().toUpperCase(), id]);
+    } else {
+      await run('INSERT INTO stores (id, name) VALUES (?, ?)', [randomUUID(), name.trim().toUpperCase()]);
+    }
+    return { success: true };
+  } catch (e) {
+    return { success: false, error: 'ERRO AO SALVAR LOJA' };
+  }
+});
+
+ipcMain.handle('archive-store', async (_, { id, archived }) => {
+  try {
+    await run('UPDATE stores SET archived = ? WHERE id = ?', [archived ? 1 : 0, id]);
+    return { success: true };
+  } catch (e) {
+    return { success: false, error: 'ERRO AO ARQUIVAR LOJA' };
+  }
 });
 
 ipcMain.handle('get-users', async () => {
