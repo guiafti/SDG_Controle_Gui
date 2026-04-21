@@ -22,6 +22,9 @@
       "dist/**/*",
       "package.json"
     ],
+    "extraResources": [
+      ".env"
+    ],
     "asar": true,
     "asarUnpack": [
       "**/node_modules/better-sqlite3/**/*"

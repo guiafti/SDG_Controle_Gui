@@ -21,9 +21,11 @@ contextBridge.exposeInMainWorld('api', {
   getSettings: () => ipcRenderer.invoke('get-settings'),
   saveSettings: (settings: {key: string, value: string}[]) => ipcRenderer.invoke('save-settings', settings),
   archiveProduct: (data: {id: string, archived: boolean}) => ipcRenderer.invoke('archive-product', data),
-  updateInventoryQuantity: (data: {productId: string, storeId: string, quantity: number}) => ipcRenderer.invoke('update-inventory-quantity', data),
+  updateInventoryQuantity: (data: {productId: string, store_id: string, quantity: number}) => ipcRenderer.invoke('update-inventory-quantity', data),
   uploadProductImage: (data: {barcode: string, base64Data: string}) => ipcRenderer.invoke('upload-product-image', data),
+  isCloudConfigured: () => ipcRenderer.invoke('is-cloud-configured'),
+  getAppTitle: () => ipcRenderer.invoke('get-app-title'),
   minimizeWindow: () => ipcRenderer.send('window-minimize'),
   maximizeWindow: () => ipcRenderer.send('window-maximize'),
   closeWindow: () => ipcRenderer.send('window-close'),
-});
+  });
