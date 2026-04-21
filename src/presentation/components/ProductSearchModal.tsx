@@ -9,23 +9,33 @@ interface ProductSearchModalProps {
 
 const ProductSearchModal: React.FC<ProductSearchModalProps> = ({ isOpen, onClose, onSelectProduct, storeId }) => {
   const [products, setProducts] = useState<any[]>([]);
+  const [stores, setStores] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [viewingProduct, setViewingProduct] = useState<any>(null);
 
   useEffect(() => {
     if (isOpen) {
       setSearchTerm('');
-      fetchProducts();
+      fetchData();
     }
   }, [isOpen]);
 
-  const fetchProducts = async () => {
+  const fetchData = async () => {
     try {
-      const data = await window.api.getAllProducts();
-      setProducts(data || []);
+      const [pData, sData] = await Promise.all([
+        window.api.getAllProducts(),
+        window.api.getStores()
+      ]);
+      setProducts(pData || []);
+      setStores(sData || []);
     } catch (e) {
       console.error(e);
     }
+  };
+
+  const getTotalStock = (p: any) => {
+    if (!p.stocks) return 0;
+    return Object.values(p.stocks as Record<string, number>).reduce((a, b) => a + b, 0);
   };
 
   if (!isOpen) return null;
@@ -99,12 +109,12 @@ const ProductSearchModal: React.FC<ProductSearchModalProps> = ({ isOpen, onClose
                     </div>
                   </div>
 
-                  {/* Estoque Multiloja */}
-                  <div className="flex items-center gap-3 bg-slate-50 p-3 rounded-2xl border border-slate-100 shrink-0">
-                    {[1, 2, 3].map(num => (
-                      <div key={num} className={`flex flex-col items-center px-4 py-2 rounded-xl transition-all ${storeId === String(num) ? 'bg-brand-600 text-white shadow-lg scale-110' : 'opacity-30'}`}>
-                        <span className="text-[8px] font-black uppercase">Loja {num === 1 ? 'A' : num === 2 ? 'B' : 'C'}</span>
-                        <span className={`font-black ${storeId === String(num) ? 'text-lg' : 'text-xs'}`}>{p[`stock_${num}`]}</span>
+                  {/* Estoque Multiloja Dinâmico */}
+                  <div className="flex items-center gap-2 bg-slate-50 p-2 rounded-2xl border border-slate-100 shrink-0 overflow-x-auto no-scrollbar max-w-[200px]">
+                    {stores.map(s => (
+                      <div key={s.id} className={`flex flex-col items-center px-3 py-1.5 rounded-xl transition-all ${storeId === String(s.id) ? 'bg-brand-600 text-white shadow-lg' : 'bg-white text-slate-400 border border-slate-100'}`}>
+                        <span className="text-[7px] font-black uppercase truncate max-w-[35px]">{s.name}</span>
+                        <span className={`font-black ${storeId === String(s.id) ? 'text-sm' : 'text-[10px]'}`}>{p.stocks?.[s.id] || 0}</span>
                       </div>
                     ))}
                   </div>
@@ -131,10 +141,10 @@ const ProductSearchModal: React.FC<ProductSearchModalProps> = ({ isOpen, onClose
         </div>
       </div>
 
-      {/* CARD DE VISUALIZAÇÃO DETALHADA - LAYOUT HORIZONTAL */}
+      {/* CARD DE VISUALIZAÇÃO DETALHADA */}
       {viewingProduct && (
         <div className="fixed inset-0 bg-slate-900/90 backdrop-blur-md z-[300] flex items-center justify-center p-6">
-          <div className="bg-white rounded-[40px] shadow-2xl w-full max-w-5xl flex flex-row relative max-h-[85vh] overflow-hidden">
+          <div className="bg-white rounded-[40px] shadow-2xl w-full max-w-5xl flex flex-col md:flex-row relative max-h-[85vh] overflow-hidden">
             <button 
               onClick={() => setViewingProduct(null)}
               className="absolute top-6 right-6 w-12 h-12 bg-slate-100 text-slate-500 hover:bg-red-500 hover:text-white rounded-full flex items-center justify-center transition-all z-20 shadow-sm"
@@ -142,8 +152,7 @@ const ProductSearchModal: React.FC<ProductSearchModalProps> = ({ isOpen, onClose
               <i className="ph ph-x text-2xl"></i>
             </button>
 
-            {/* LADO ESQUERDO: IMAGEM */}
-            <div className="w-2/5 bg-slate-50 flex items-center justify-center overflow-hidden border-r border-slate-100 p-8">
+            <div className="w-full md:w-2/5 bg-slate-50 flex items-center justify-center overflow-hidden border-r border-slate-100 p-8">
               {viewingProduct.image ? (
                 <img 
                   src={viewingProduct.image.startsWith('http') ? viewingProduct.image : `local-img://${viewingProduct.image}`} 
@@ -155,8 +164,7 @@ const ProductSearchModal: React.FC<ProductSearchModalProps> = ({ isOpen, onClose
               )}
             </div>
 
-            {/* LADO DIREITO: INFORMAÇÕES */}
-            <div className="w-3/5 p-12 flex flex-col justify-center overflow-y-auto custom-scrollbar">
+            <div className="w-full md:w-3/5 p-12 flex flex-col justify-center overflow-y-auto custom-scrollbar">
               <div className="mb-6">
                 <span className="inline-block px-4 py-2 bg-brand-50 text-brand-600 rounded-full text-[10px] font-black uppercase tracking-[0.2em] mb-4">
                   Detalhes do Produto
@@ -180,24 +188,19 @@ const ProductSearchModal: React.FC<ProductSearchModalProps> = ({ isOpen, onClose
                   <div className="text-right">
                     <span className="text-[11px] font-black text-slate-400 uppercase block mb-1">Disponibilidade Total</span>
                     <span className="text-4xl font-black text-brand-600">
-                      {Number(viewingProduct.stock_1 || 0) + Number(viewingProduct.stock_2 || 0) + Number(viewingProduct.stock_3 || 0)}
+                      {getTotalStock(viewingProduct)}
                     </span>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-3 gap-4">
-                  <div className={`p-4 rounded-2xl border transition-all flex flex-col items-center ${storeId === '1' ? 'bg-brand-600 border-brand-700 text-white shadow-lg scale-105' : 'bg-white border-slate-200 text-slate-600'}`}>
-                    <span className={`text-[9px] font-black uppercase mb-1 ${storeId === '1' ? 'text-brand-100' : 'text-slate-400'}`}>Loja A</span>
-                    <span className="text-2xl font-black">{viewingProduct.stock_1 || 0}</span>
-                  </div>
-                  <div className={`p-4 rounded-2xl border transition-all flex flex-col items-center ${storeId === '2' ? 'bg-brand-600 border-brand-700 text-white shadow-lg scale-105' : 'bg-white border-slate-200 text-slate-600'}`}>
-                    <span className={`text-[9px] font-black uppercase mb-1 ${storeId === '2' ? 'text-brand-100' : 'text-slate-400'}`}>Loja B</span>
-                    <span className="text-2xl font-black">{viewingProduct.stock_2 || 0}</span>
-                  </div>
-                  <div className={`p-4 rounded-2xl border transition-all flex flex-col items-center ${storeId === '3' ? 'bg-brand-600 border-brand-700 text-white shadow-lg scale-105' : 'bg-white border-slate-200 text-slate-600'}`}>
-                    <span className={`text-[9px] font-black uppercase mb-1 ${storeId === '3' ? 'text-brand-100' : 'text-slate-400'}`}>Loja C</span>
-                    <span className="text-2xl font-black">{viewingProduct.stock_3 || 0}</span>
-                  </div>
+                {/* Grid Dinâmica de Estoques */}
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                  {stores.map(s => (
+                    <div key={s.id} className={`p-4 rounded-2xl border transition-all flex flex-col items-center ${storeId === String(s.id) ? 'bg-brand-600 border-brand-700 text-white shadow-lg scale-105' : 'bg-white border-slate-200 text-slate-600'}`}>
+                      <span className={`text-[9px] font-black uppercase mb-1 ${storeId === String(s.id) ? 'text-brand-100' : 'text-slate-400'}`}>{s.name}</span>
+                      <span className="text-2xl font-black">{viewingProduct.stocks?.[s.id] || 0}</span>
+                    </div>
+                  ))}
                 </div>
               </div>
 

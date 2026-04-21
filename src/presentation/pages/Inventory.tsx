@@ -7,6 +7,7 @@ interface InventoryProps {
 
 const Inventory: React.FC<InventoryProps> = ({ role }) => {
   const [products, setProducts] = useState<any[]>([]);
+  const [stores, setStores] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [showArchived, setShowArchived] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -16,19 +17,23 @@ const Inventory: React.FC<InventoryProps> = ({ role }) => {
   const [formBarcode, setFormBarcode] = useState('');
   const [formPrice, setFormPrice] = useState('');
   const [formImage, setFormImage] = useState('');
-  const [formStocks, setFormStocks] = useState({ stock_1: 0, stock_2: 0, stock_3: 0 });
-  const [formMinStocks, setFormMinStocks] = useState({ min_1: 2, min_2: 2, min_3: 2 });
-  const [formSaleTolerances, setFormSaleTolerances] = useState({ stale_1: 30, stale_2: 30, stale_3: 30 });
+  const [formStocks, setFormStocks] = useState<Record<string, number>>({});
+  const [formMinStocks, setFormMinStocks] = useState<Record<string, number>>({});
+  const [formSaleTolerances, setFormSaleTolerances] = useState<Record<string, number>>({});
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
-  const fetchProducts = async () => {
+  const fetchData = async () => {
     try {
-      const data = await window.api.getAllProducts();
-      setProducts(data || []);
+      const [pData, sData] = await Promise.all([
+        window.api.getAllProducts(),
+        window.api.getStores()
+      ]);
+      setProducts(pData || []);
+      setStores(sData || []);
     } catch (e) { console.error(e); }
   };
 
-  useEffect(() => { fetchProducts(); }, []);
+  useEffect(() => { fetchData(); }, []);
 
   const filteredProducts = products.filter(p => 
     (showArchived ? p.archived === 1 : p.archived === 0) &&
@@ -42,21 +47,20 @@ const Inventory: React.FC<InventoryProps> = ({ role }) => {
     setFormBarcode(p?.barcode || '');
     setFormPrice(p?.price?.toString() || '');
     setFormImage(p?.image || '');
-    setFormStocks({
-      stock_1: p?.stock_1 || 0,
-      stock_2: p?.stock_2 || 0,
-      stock_3: p?.stock_3 || 0
+    
+    const stocks: Record<string, number> = {};
+    const minStocks: Record<string, number> = {};
+    const saleTolerances: Record<string, number> = {};
+    
+    stores.forEach(s => {
+      stocks[s.id] = p?.stocks?.[s.id] || 0;
+      minStocks[s.id] = p?.minStocks?.[s.id] ?? 2;
+      saleTolerances[s.id] = p?.staleDays?.[s.id] ?? 30;
     });
-    setFormMinStocks({
-      min_1: p?.min_1 ?? 2,
-      min_2: p?.min_2 ?? 2,
-      min_3: p?.min_3 ?? 2
-    });
-    setFormSaleTolerances({
-      stale_1: p?.stale_1 ?? 30,
-      stale_2: p?.stale_2 ?? 30,
-      stale_3: p?.stale_3 ?? 30
-    });
+    
+    setFormStocks(stocks);
+    setFormMinStocks(minStocks);
+    setFormSaleTolerances(saleTolerances);
     setIsModalOpen(true);
   };
 
@@ -97,7 +101,7 @@ const Inventory: React.FC<InventoryProps> = ({ role }) => {
                 if (result.success) {
                   toast.success(showArchived ? 'Produto restaurado!' : 'Produto arquivado!');
                   setIsModalOpen(false);
-                  fetchProducts();
+                  fetchData();
                 }
               } catch (e) {
                 toast.error('Erro ao processar arquivamento.');
@@ -150,32 +154,20 @@ const Inventory: React.FC<InventoryProps> = ({ role }) => {
       if (result.success) {
         // Se for admin, atualizar as quantidades de estoque também
         if (role === 'admin' && editingProduct?.id) {
-          await window.api.updateInventoryQuantity({ 
-            productId: editingProduct.id, 
-            storeId: '1', 
-            quantity: Number(formStocks.stock_1),
-            minStock: Number(formMinStocks.min_1),
-            saleToleranceDays: Number(formSaleTolerances.stale_1)
-          });
-          await window.api.updateInventoryQuantity({ 
-            productId: editingProduct.id, 
-            storeId: '2', 
-            quantity: Number(formStocks.stock_2),
-            minStock: Number(formMinStocks.min_2),
-            saleToleranceDays: Number(formSaleTolerances.stale_2)
-          });
-          await window.api.updateInventoryQuantity({ 
-            productId: editingProduct.id, 
-            storeId: '3', 
-            quantity: Number(formStocks.stock_3),
-            minStock: Number(formMinStocks.min_3),
-            saleToleranceDays: Number(formSaleTolerances.stale_3)
-          });
+          for (const s of stores) {
+            await window.api.updateInventoryQuantity({ 
+              productId: editingProduct.id, 
+              storeId: s.id, 
+              quantity: Number(formStocks[s.id] || 0),
+              minStock: Number(formMinStocks[s.id] ?? 2),
+              saleToleranceDays: Number(formSaleTolerances[s.id] ?? 30)
+            });
+          }
         }
 
         toast.success('PRODUTO SALVO COM SUCESSO!', { id: loadingId });
         setIsModalOpen(false);
-        fetchProducts();
+        fetchData();
       } else {
         toast.error(`ERRO NO BANCO: ${result.error || 'Falha desconhecida'}`, { id: loadingId });
       }
@@ -199,37 +191,48 @@ const Inventory: React.FC<InventoryProps> = ({ role }) => {
         
         toast((t) => (
           <div className="flex flex-col gap-4 p-2 text-center">
-            <h3 className="font-black text-slate-800 text-lg uppercase">Importar para qual loja?</h3>
-            <p className="text-sm text-slate-500 font-medium">Selecione a unidade de destino:</p>
-            <div className="grid grid-cols-3 gap-2 mt-2">
-              {[1, 2, 3].map(num => (
+            <div className="flex items-center justify-center w-12 h-12 bg-blue-50 text-blue-600 rounded-2xl mx-auto">
+              <i className="ph ph-storefront text-2xl font-bold"></i>
+            </div>
+            <div>
+              <h3 className="font-black text-slate-800 text-lg uppercase leading-tight">Destino da Carga</h3>
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Selecione a loja para entrada</p>
+            </div>
+            <div className="grid grid-cols-2 gap-2 mt-2">
+              {stores.map(s => (
                 <button 
-                  key={num}
+                  key={s.id}
                   onClick={async () => {
                     toast.dismiss(t.id);
-                    const loadingId = toast.loading('Processando XML...');
+                    const loadingId = toast.loading('Processando Protocolo Guardião...');
                     try {
-                      const result = await window.api.importXmlProducts(xmlData, String(num));
-                      toast.success(`PROTOCOLO PROCESSADO!\nNovos: ${result.newProducts} | Atualizados: ${result.stockUpdates}`, { id: loadingId });
-                      fetchProducts();
+                      const result = await window.api.importXmlProducts(xmlData, String(s.id));
+                      toast.success(
+                        <div className="flex flex-col">
+                          <span className="font-black">IMPORTAÇÃO CONCLUÍDA!</span>
+                          <span className="text-[10px] uppercase opacity-80">Novos: {result.newProducts} | Estoque: {result.stockUpdates}</span>
+                        </div>, 
+                        { id: loadingId, duration: 4000 }
+                      );
+                      fetchData();
                     } catch (err) {
-                      toast.error('ERRO AO PROCESSAR XML', { id: loadingId });
+                      toast.error('ERRO NO PROCESSAMENTO DO XML', { id: loadingId });
                     }
                   }}
-                  className="py-3 bg-brand-100 text-brand-600 rounded-xl font-bold hover:bg-brand-500 hover:text-white transition-all"
+                  className="py-3 bg-slate-50 text-slate-600 rounded-xl font-black hover:bg-brand-600 hover:text-white transition-all text-[10px] uppercase border border-slate-100"
                 >
-                  Loja {num}
+                  {s.name}
                 </button>
               ))}
             </div>
             <button 
               onClick={() => toast.dismiss(t.id)}
-              className="mt-2 text-xs font-bold text-slate-400 hover:text-slate-600 uppercase"
+              className="mt-2 text-[9px] font-black text-slate-400 hover:text-red-500 uppercase transition-colors"
             >
               Cancelar Operação
             </button>
           </div>
-        ), { duration: Infinity, position: 'top-center', style: { padding: '20px', borderRadius: '24px' } });
+        ), { duration: Infinity, position: 'top-center', style: { padding: '24px', borderRadius: '32px', minWidth: '320px', border: '1px solid #e2e8f0' } });
       };
       reader.readAsText(file);
     };
@@ -314,7 +317,7 @@ const Inventory: React.FC<InventoryProps> = ({ role }) => {
           <div className="w-10 mr-4"></div>
           <div className="flex-1">Produto e Código</div>
           <div className="w-32">Valor Base</div>
-          <div className="w-40 text-center">Estoques Lojas</div>
+          <div className="w-60 text-center">Estoques Lojas</div>
           <div className="w-8"></div>
         </div>
 
@@ -354,30 +357,24 @@ const Inventory: React.FC<InventoryProps> = ({ role }) => {
                   </span>
                 </div>
 
-                <div className="w-40 flex items-center justify-center gap-4 shrink-0">
-                  <div className={`flex flex-col items-center p-1.5 rounded-lg transition-colors ${p.stock_1 <= p.min_1 ? 'bg-red-50 ring-1 ring-red-100' : ''}`}>
-                    <span className={`text-[7px] font-black uppercase mb-0.5 ${p.stock_1 <= p.min_1 ? 'text-red-400' : 'text-slate-400'}`}>Lj A</span>
-                    <div className="flex items-center gap-0.5">
-                      <span className={`text-xs font-black ${p.stock_1 <= p.min_1 ? 'text-red-600' : 'text-slate-700'}`}>{p.stock_1}</span>
-                      {p.stock_1 <= p.min_1 && <i className="ph ph-warning-octagon text-[10px] text-red-500 animate-pulse"></i>}
-                    </div>
-                  </div>
-                  <div className="w-px h-6 bg-slate-200"></div>
-                  <div className={`flex flex-col items-center p-1.5 rounded-lg transition-colors ${p.stock_2 <= p.min_2 ? 'bg-red-50 ring-1 ring-red-100' : ''}`}>
-                    <span className={`text-[7px] font-black uppercase mb-0.5 ${p.stock_2 <= p.min_2 ? 'text-red-400' : 'text-slate-400'}`}>Lj B</span>
-                    <div className="flex items-center gap-0.5">
-                      <span className={`text-xs font-black ${p.stock_2 <= p.min_2 ? 'text-red-600' : 'text-slate-700'}`}>{p.stock_2}</span>
-                      {p.stock_2 <= p.min_2 && <i className="ph ph-warning-octagon text-[10px] text-red-500 animate-pulse"></i>}
-                    </div>
-                  </div>
-                  <div className="w-px h-6 bg-slate-200"></div>
-                  <div className={`flex flex-col items-center p-1.5 rounded-lg transition-colors ${p.stock_3 <= p.min_3 ? 'bg-red-50 ring-1 ring-red-100' : ''}`}>
-                    <span className={`text-[7px] font-black uppercase mb-0.5 ${p.stock_3 <= p.min_3 ? 'text-red-400' : 'text-slate-400'}`}>Lj C</span>
-                    <div className="flex items-center gap-0.5">
-                      <span className={`text-xs font-black ${p.stock_3 <= p.min_3 ? 'text-red-600' : 'text-slate-700'}`}>{p.stock_3}</span>
-                      {p.stock_3 <= p.min_3 && <i className="ph ph-warning-octagon text-[10px] text-red-500 animate-pulse"></i>}
-                    </div>
-                  </div>
+                <div className="w-60 flex items-center justify-center gap-2 shrink-0 overflow-x-auto no-scrollbar">
+                  {stores.map((s, idx) => {
+                    const stock = p.stocks?.[s.id] || 0;
+                    const min = p.minStocks?.[s.id] ?? 2;
+                    const isLow = stock <= min;
+                    return (
+                      <React.Fragment key={s.id}>
+                        <div className={`flex flex-col items-center p-1.5 rounded-lg transition-colors min-w-[45px] ${isLow ? 'bg-red-50 ring-1 ring-red-100' : ''}`}>
+                          <span className={`text-[7px] font-black uppercase mb-0.5 truncate max-w-[40px] ${isLow ? 'text-red-400' : 'text-slate-400'}`}>{s.name}</span>
+                          <div className="flex items-center gap-0.5">
+                            <span className={`text-xs font-black ${isLow ? 'text-red-600' : 'text-slate-700'}`}>{stock}</span>
+                            {isLow && <i className="ph ph-warning-octagon text-[10px] text-red-500 animate-pulse"></i>}
+                          </div>
+                        </div>
+                        {idx < stores.length - 1 && <div className="w-px h-6 bg-slate-200 shrink-0"></div>}
+                      </React.Fragment>
+                    );
+                  })}
                 </div>
 
                 <button 
@@ -403,7 +400,7 @@ const Inventory: React.FC<InventoryProps> = ({ role }) => {
               <p className="text-brand-100 text-[10px] font-bold uppercase tracking-widest mt-1 opacity-70">Preencha o protocolo de entrada</p>
             </div>
             
-            <form onSubmit={handleSave} className="p-8 space-y-6 overflow-y-auto">
+            <form onSubmit={handleSave} className="p-8 space-y-6 overflow-y-auto custom-scrollbar">
               {/* ÁREA DE UPLOAD DE IMAGEM */}
               <div>
                 <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 text-center">Foto do Produto (Clique para Alterar)</label>
@@ -482,55 +479,52 @@ const Inventory: React.FC<InventoryProps> = ({ role }) => {
                 <>
                   <div className="bg-slate-50 p-5 rounded-3xl border-2 border-slate-100">
                     <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 text-center">Ajuste de Estoque Físico (ADMIN)</label>
-                    <div className="grid grid-cols-3 gap-3">
-                      <div className="text-center">
-                        <span className="text-[8px] font-black text-slate-400 uppercase">Loja A</span>
-                        <input type="number" value={formStocks.stock_1} onChange={e => setFormStocks({...formStocks, stock_1: parseInt(e.target.value) || 0})} className="w-full mt-1 p-2 bg-white border border-slate-200 rounded-lg text-center font-black text-sm" />
-                      </div>
-                      <div className="text-center">
-                        <span className="text-[8px] font-black text-slate-400 uppercase">Loja B</span>
-                        <input type="number" value={formStocks.stock_2} onChange={e => setFormStocks({...formStocks, stock_2: parseInt(e.target.value) || 0})} className="w-full mt-1 p-2 bg-white border border-slate-200 rounded-lg text-center font-black text-sm" />
-                      </div>
-                      <div className="text-center">
-                        <span className="text-[8px] font-black text-slate-400 uppercase">Loja C</span>
-                        <input type="number" value={formStocks.stock_3} onChange={e => setFormStocks({...formStocks, stock_3: parseInt(e.target.value) || 0})} className="w-full mt-1 p-2 bg-white border border-slate-200 rounded-lg text-center font-black text-sm" />
-                      </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                      {stores.map(s => (
+                        <div key={s.id} className="text-center">
+                          <span className="text-[8px] font-black text-slate-400 uppercase truncate block">{s.name}</span>
+                          <input 
+                            type="number" 
+                            value={formStocks[s.id] || 0} 
+                            onChange={e => setFormStocks({...formStocks, [s.id]: parseInt(e.target.value) || 0})} 
+                            className="w-full mt-1 p-2 bg-white border border-slate-200 rounded-lg text-center font-black text-sm" 
+                          />
+                        </div>
+                      ))}
                     </div>
                   </div>
 
                   <div className="bg-orange-50/50 p-5 rounded-3xl border-2 border-orange-100/50">
                     <label className="block text-[10px] font-black text-orange-400 uppercase tracking-widest mb-3 text-center">Estoque Mínimo de Alerta (ADMIN)</label>
-                    <div className="grid grid-cols-3 gap-3">
-                      <div className="text-center">
-                        <span className="text-[8px] font-black text-orange-400 uppercase">Min Lj A</span>
-                        <input type="number" value={formMinStocks.min_1} onChange={e => setFormMinStocks({...formMinStocks, min_1: parseInt(e.target.value) || 0})} className="w-full mt-1 p-2 bg-white border border-orange-200 rounded-lg text-center font-black text-sm text-orange-600 outline-none focus:border-orange-500" />
-                      </div>
-                      <div className="text-center">
-                        <span className="text-[8px] font-black text-orange-400 uppercase">Min Lj B</span>
-                        <input type="number" value={formMinStocks.min_2} onChange={e => setFormMinStocks({...formMinStocks, min_2: parseInt(e.target.value) || 0})} className="w-full mt-1 p-2 bg-white border border-orange-200 rounded-lg text-center font-black text-sm text-orange-600 outline-none focus:border-orange-500" />
-                      </div>
-                      <div className="text-center">
-                        <span className="text-[8px] font-black text-orange-400 uppercase">Min Lj C</span>
-                        <input type="number" value={formMinStocks.min_3} onChange={e => setFormMinStocks({...formMinStocks, min_3: parseInt(e.target.value) || 0})} className="w-full mt-1 p-2 bg-white border border-orange-200 rounded-lg text-center font-black text-sm text-orange-600 outline-none focus:border-orange-500" />
-                      </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                      {stores.map(s => (
+                        <div key={s.id} className="text-center">
+                          <span className="text-[8px] font-black text-orange-400 uppercase truncate block">{s.name}</span>
+                          <input 
+                            type="number" 
+                            value={formMinStocks[s.id] ?? 2} 
+                            onChange={e => setFormMinStocks({...formMinStocks, [s.id]: parseInt(e.target.value) || 0})} 
+                            className="w-full mt-1 p-2 bg-white border border-orange-200 rounded-lg text-center font-black text-sm text-orange-600 outline-none focus:border-orange-500" 
+                          />
+                        </div>
+                      ))}
                     </div>
                   </div>
 
                   <div className="bg-brand-50/50 p-5 rounded-3xl border-2 border-brand-100/50">
                     <label className="block text-[10px] font-black text-brand-400 uppercase tracking-widest mb-3 text-center">Tolerância de Venda - Dias (ADMIN)</label>
-                    <div className="grid grid-cols-3 gap-3">
-                      <div className="text-center">
-                        <span className="text-[8px] font-black text-brand-400 uppercase">Dias Lj A</span>
-                        <input type="number" value={formSaleTolerances.stale_1} onChange={e => setFormSaleTolerances({...formSaleTolerances, stale_1: parseInt(e.target.value) || 0})} className="w-full mt-1 p-2 bg-white border border-brand-200 rounded-lg text-center font-black text-sm text-brand-600 outline-none focus:border-brand-500" />
-                      </div>
-                      <div className="text-center">
-                        <span className="text-[8px] font-black text-brand-400 uppercase">Dias Lj B</span>
-                        <input type="number" value={formSaleTolerances.stale_2} onChange={e => setFormSaleTolerances({...formSaleTolerances, stale_2: parseInt(e.target.value) || 0})} className="w-full mt-1 p-2 bg-white border border-brand-200 rounded-lg text-center font-black text-sm text-brand-600 outline-none focus:border-brand-500" />
-                      </div>
-                      <div className="text-center">
-                        <span className="text-[8px] font-black text-brand-400 uppercase">Dias Lj C</span>
-                        <input type="number" value={formSaleTolerances.stale_3} onChange={e => setFormSaleTolerances({...formSaleTolerances, stale_3: parseInt(e.target.value) || 0})} className="w-full mt-1 p-2 bg-white border border-brand-200 rounded-lg text-center font-black text-sm text-brand-600 outline-none focus:border-brand-500" />
-                      </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                      {stores.map(s => (
+                        <div key={s.id} className="text-center">
+                          <span className="text-[8px] font-black text-brand-400 uppercase truncate block">{s.name}</span>
+                          <input 
+                            type="number" 
+                            value={formSaleTolerances[s.id] ?? 30} 
+                            onChange={e => setFormSaleTolerances({...formSaleTolerances, [s.id]: parseInt(e.target.value) || 0})} 
+                            className="w-full mt-1 p-2 bg-white border border-brand-200 rounded-lg text-center font-black text-sm text-brand-600 outline-none focus:border-brand-500" 
+                          />
+                        </div>
+                      ))}
                     </div>
                   </div>
                 </>

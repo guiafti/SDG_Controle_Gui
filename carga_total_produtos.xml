@@ -1,0 +1,459 @@
+﻿<?xml version='1.0' encoding='UTF-8'?>
+<products>
+  <item>
+    <barcode>7890000000001</barcode>
+    <name>A07 (CAPA)</name>
+    <price>25.90</price>
+    <quantity>50</quantity>
+  </item>
+  <item>
+    <barcode>7890000000002</barcode>
+    <name>A17 (CAPA)</name>
+    <price>26.90</price>
+    <quantity>50</quantity>
+  </item>
+  <item>
+    <barcode>7890000000003</barcode>
+    <name>A06 5G (CAPA)</name>
+    <price>26.90</price>
+    <quantity>50</quantity>
+  </item>
+  <item>
+    <barcode>7890000000004</barcode>
+    <name>A23 (CAPA)</name>
+    <price>28.90</price>
+    <quantity>50</quantity>
+  </item>
+  <item>
+    <barcode>7890000000005</barcode>
+    <name>A20s (CAPA)</name>
+    <price>22.90</price>
+    <quantity>50</quantity>
+  </item>
+  <item>
+    <barcode>7890000000006</barcode>
+    <name>A14 (CAPA)</name>
+    <price>26.90</price>
+    <quantity>50</quantity>
+  </item>
+  <item>
+    <barcode>7890000000007</barcode>
+    <name>A02 (CAPA)</name>
+    <price>19.90</price>
+    <quantity>50</quantity>
+  </item>
+  <item>
+    <barcode>7890000000008</barcode>
+    <name>A02s (CAPA)</name>
+    <price>19.90</price>
+    <quantity>50</quantity>
+  </item>
+  <item>
+    <barcode>7890000000009</barcode>
+    <name>A03 (CAPA)</name>
+    <price>21.90</price>
+    <quantity>50</quantity>
+  </item>
+  <item>
+    <barcode>7890000000010</barcode>
+    <name>A03 Core (CAPA)</name>
+    <price>21.90</price>
+    <quantity>50</quantity>
+  </item>
+  <item>
+    <barcode>7890000000011</barcode>
+    <name>A05 (CAPA)</name>
+    <price>23.90</price>
+    <quantity>50</quantity>
+  </item>
+  <item>
+    <barcode>7890000000012</barcode>
+    <name>A55 (CAPA)</name>
+    <price>29.90</price>
+    <quantity>50</quantity>
+  </item>
+  <item>
+    <barcode>7890000000013</barcode>
+    <name>A56 (CAPA)</name>
+    <price>29.90</price>
+    <quantity>50</quantity>
+  </item>
+  <item>
+    <barcode>7890000000014</barcode>
+    <name>S21 FE (CAPA)</name>
+    <price>27.90</price>
+    <quantity>50</quantity>
+  </item>
+  <item>
+    <barcode>7890000000015</barcode>
+    <name>A11 (CAPA)</name>
+    <price>23.90</price>
+    <quantity>50</quantity>
+  </item>
+  <item>
+    <barcode>7890000000016</barcode>
+    <name>A10s (CAPA)</name>
+    <price>22.90</price>
+    <quantity>50</quantity>
+  </item>
+  <item>
+    <barcode>7890000000017</barcode>
+    <name>A26 (CAPA)</name>
+    <price>28.90</price>
+    <quantity>50</quantity>
+  </item>
+  <item>
+    <barcode>7890000000018</barcode>
+    <name>A21 / A21s (CAPA)</name>
+    <price>28.90</price>
+    <quantity>50</quantity>
+  </item>
+  <item>
+    <barcode>7890000000019</barcode>
+    <name>S26 Ultra (CAPA)</name>
+    <price>34.90</price>
+    <quantity>50</quantity>
+  </item>
+  <item>
+    <barcode>7890000000020</barcode>
+    <name>iPhone 11 (feminina) (CAPA)</name>
+    <price>34.90</price>
+    <quantity>50</quantity>
+  </item>
+  <item>
+    <barcode>7890000000021</barcode>
+    <name>iPhone 13 (CAPA)</name>
+    <price>34.90</price>
+    <quantity>50</quantity>
+  </item>
+  <item>
+    <barcode>7890000000022</barcode>
+    <name>iPhone 14 (CAPA)</name>
+    <price>34.90</price>
+    <quantity>50</quantity>
+  </item>
+  <item>
+    <barcode>7890000000023</barcode>
+    <name>G10 / G20 / G30 (CAPA)</name>
+    <price>27.90</price>
+    <quantity>50</quantity>
+  </item>
+  <item>
+    <barcode>7890000000024</barcode>
+    <name>G06 (CAPA)</name>
+    <price>26.90</price>
+    <quantity>50</quantity>
+  </item>
+  <item>
+    <barcode>7890000000025</barcode>
+    <name>G86 (CAPA)</name>
+    <price>29.90</price>
+    <quantity>50</quantity>
+  </item>
+  <item>
+    <barcode>7890000000026</barcode>
+    <name>E13 (CAPA)</name>
+    <price>24.90</price>
+    <quantity>50</quantity>
+  </item>
+  <item>
+    <barcode>7890000000027</barcode>
+    <name>G15 (CAPA)</name>
+    <price>26.90</price>
+    <quantity>50</quantity>
+  </item>
+  <item>
+    <barcode>7890000000028</barcode>
+    <name>G22 (CAPA)</name>
+    <price>26.90</price>
+    <quantity>50</quantity>
+  </item>
+  <item>
+    <barcode>7890000000029</barcode>
+    <name>G24 (CAPA)</name>
+    <price>26.90</price>
+    <quantity>50</quantity>
+  </item>
+  <item>
+    <barcode>7890000000030</barcode>
+    <name>G52 (CAPA)</name>
+    <price>29.90</price>
+    <quantity>50</quantity>
+  </item>
+  <item>
+    <barcode>7890000000031</barcode>
+    <name>Edge 60 Pro (CAPA)</name>
+    <price>34.90</price>
+    <quantity>50</quantity>
+  </item>
+  <item>
+    <barcode>7890000000032</barcode>
+    <name>Note 13 Pro (CAPA)</name>
+    <price>34.90</price>
+    <quantity>50</quantity>
+  </item>
+  <item>
+    <barcode>7890000000033</barcode>
+    <name>Redmi 13C (4G/5G) (CAPA)</name>
+    <price>29.90</price>
+    <quantity>50</quantity>
+  </item>
+  <item>
+    <barcode>7890000000034</barcode>
+    <name>Redmi 14C (CAPA)</name>
+    <price>29.90</price>
+    <quantity>50</quantity>
+  </item>
+  <item>
+    <barcode>7890000000035</barcode>
+    <name>Realme Note 50 (CAPA)</name>
+    <price>29.90</price>
+    <quantity>50</quantity>
+  </item>
+  <item>
+    <barcode>7890000000036</barcode>
+    <name>Redmi 13 (CAPA)</name>
+    <price>29.90</price>
+    <quantity>50</quantity>
+  </item>
+  <item>
+    <barcode>7890000000037</barcode>
+    <name>Redmi Note 13 (CAPA)</name>
+    <price>29.90</price>
+    <quantity>50</quantity>
+  </item>
+  <item>
+    <barcode>7890000000038</barcode>
+    <name>Redmi 9C (CAPA)</name>
+    <price>24.90</price>
+    <quantity>50</quantity>
+  </item>
+  <item>
+    <barcode>7890000000039</barcode>
+    <name>Redmi Note 10 5G (CAPA)</name>
+    <price>29.90</price>
+    <quantity>50</quantity>
+  </item>
+  <item>
+    <barcode>7890000000040</barcode>
+    <name>Redmi 10 (4G/5G) (CAPA)</name>
+    <price>29.90</price>
+    <quantity>50</quantity>
+  </item>
+  <item>
+    <barcode>7890000000041</barcode>
+    <name>Redmi Note 12 (CAPA)</name>
+    <price>29.90</price>
+    <quantity>50</quantity>
+  </item>
+  <item>
+    <barcode>7890000000042</barcode>
+    <name>Poco X3 (CAPA)</name>
+    <price>29.90</price>
+    <quantity>50</quantity>
+  </item>
+  <item>
+    <barcode>7890000000043</barcode>
+    <name>Poco X8 Pro (CAPA)</name>
+    <price>34.90</price>
+    <quantity>50</quantity>
+  </item>
+  <item>
+    <barcode>7890000000044</barcode>
+    <name>Note 14 Pro 5G (CAPA)</name>
+    <price>34.90</price>
+    <quantity>50</quantity>
+  </item>
+  <item>
+    <barcode>7890000000045</barcode>
+    <name>G67 (CAPA)</name>
+    <price>29.90</price>
+    <quantity>50</quantity>
+  </item>
+  <item>
+    <barcode>7890000000046</barcode>
+    <name>G77 (CAPA)</name>
+    <price>29.90</price>
+    <quantity>50</quantity>
+  </item>
+  <item>
+    <barcode>7890000000047</barcode>
+    <name>iPhone 16 Pro Max (detalhes) (CAPA)</name>
+    <price>34.90</price>
+    <quantity>50</quantity>
+  </item>
+  <item>
+    <barcode>7890000000048</barcode>
+    <name>G05 (CAPA)</name>
+    <price>24.90</price>
+    <quantity>50</quantity>
+  </item>
+  <item>
+    <barcode>7890000000049</barcode>
+    <name>A05s (CAPA)</name>
+    <price>24.90</price>
+    <quantity>50</quantity>
+  </item>
+  <item>
+    <barcode>7890000000050</barcode>
+    <name>iPhone 14 Pro Max (CAPA)</name>
+    <price>34.90</price>
+    <quantity>50</quantity>
+  </item>
+  <item>
+    <barcode>7890000000051</barcode>
+    <name>A27 (CAPA)</name>
+    <price>27.90</price>
+    <quantity>50</quantity>
+  </item>
+  <item>
+    <barcode>7890000000052</barcode>
+    <name>Note 60 (CAPA)</name>
+    <price>29.90</price>
+    <quantity>50</quantity>
+  </item>
+  <item>
+    <barcode>7890000000053</barcode>
+    <name>Note 70 (CAPA)</name>
+    <price>29.90</price>
+    <quantity>50</quantity>
+  </item>
+  <item>
+    <barcode>7890000000054</barcode>
+    <name>G54 (CAPA)</name>
+    <price>29.90</price>
+    <quantity>50</quantity>
+  </item>
+  <item>
+    <barcode>7890000000055</barcode>
+    <name>Poco C85 (CAPA)</name>
+    <price>29.90</price>
+    <quantity>50</quantity>
+  </item>
+  <item>
+    <barcode>7890000000056</barcode>
+    <name>A13 (CAPA)</name>
+    <price>26.90</price>
+    <quantity>50</quantity>
+  </item>
+  <item>
+    <barcode>7890000000057</barcode>
+    <name>iPhone 12 Pro Max (CAPA)</name>
+    <price>34.90</price>
+    <quantity>50</quantity>
+  </item>
+  <item>
+    <barcode>7890000000058</barcode>
+    <name>Redmi 15 (CAPA)</name>
+    <price>29.90</price>
+    <quantity>50</quantity>
+  </item>
+  <item>
+    <barcode>7890000000059</barcode>
+    <name>Redmi 15C (feminina) (CAPA)</name>
+    <price>29.90</price>
+    <quantity>50</quantity>
+  </item>
+  <item>
+    <barcode>7890000000060</barcode>
+    <name>Redmi Note 13 4G (CAPA)</name>
+    <price>29.90</price>
+    <quantity>50</quantity>
+  </item>
+  <item>
+    <barcode>7890000000061</barcode>
+    <name>Redmi Note 13 5G (CAPA)</name>
+    <price>29.90</price>
+    <quantity>50</quantity>
+  </item>
+  <item>
+    <barcode>7890000000062</barcode>
+    <name>Realme Note 60 (CAPA)</name>
+    <price>29.90</price>
+    <quantity>50</quantity>
+  </item>
+  <item>
+    <barcode>7890000000063</barcode>
+    <name>Moto G20 (CAPA)</name>
+    <price>27.90</price>
+    <quantity>50</quantity>
+  </item>
+  <item>
+    <barcode>7890000000064</barcode>
+    <name>S20 FE (CAPA)</name>
+    <price>27.90</price>
+    <quantity>50</quantity>
+  </item>
+  <item>
+    <barcode>7890000000065</barcode>
+    <name>G32 (PELICULA)</name>
+    <price>15.90</price>
+    <quantity>50</quantity>
+  </item>
+  <item>
+    <barcode>7890000000066</barcode>
+    <name>E7 (PELICULA)</name>
+    <price>14.90</price>
+    <quantity>50</quantity>
+  </item>
+  <item>
+    <barcode>7890000000067</barcode>
+    <name>G86 (PELICULA)</name>
+    <price>16.90</price>
+    <quantity>50</quantity>
+  </item>
+  <item>
+    <barcode>7890000000111</barcode>
+    <name>G06 (PELICULA_3D)</name>
+    <price>29.90</price>
+    <quantity>50</quantity>
+  </item>
+  <item>
+    <barcode>7890000000138</barcode>
+    <name>iPhone 16 Pro Max (PELICULA_PRIVACIDADE)</name>
+    <price>39.90</price>
+    <quantity>50</quantity>
+  </item>
+  <item>
+    <barcode>7890000000144</barcode>
+    <name>Note 14 5G (CAPA_CARTEIRA)</name>
+    <price>49.90</price>
+    <quantity>50</quantity>
+  </item>
+  <item>
+    <barcode>7890000000148</barcode>
+    <name>Fone tipo C (ACESSORIO)</name>
+    <price>29.90</price>
+    <quantity>50</quantity>
+  </item>
+  <item>
+    <barcode>7890000000149</barcode>
+    <name>Cabo V8 (ACESSORIO)</name>
+    <price>14.90</price>
+    <quantity>50</quantity>
+  </item>
+  <item>
+    <barcode>7890000000150</barcode>
+    <name>Cabo tipo C (ACESSORIO)</name>
+    <price>19.90</price>
+    <quantity>50</quantity>
+  </item>
+  <item>
+    <barcode>7890000000151</barcode>
+    <name>Garrafinha (ACESSORIO)</name>
+    <price>12.90</price>
+    <quantity>50</quantity>
+  </item>
+  <item>
+    <barcode>7890000000152</barcode>
+    <name>Ventosa (4 unidades) (ACESSORIO)</name>
+    <price>19.90</price>
+    <quantity>50</quantity>
+  </item>
+  <item>
+    <barcode>7890000000153</barcode>
+    <name>Carregador por induÃ§Ã£o (ACESSORIO)</name>
+    <price>79.90</price>
+    <quantity>50</quantity>
+  </item>
+</products>

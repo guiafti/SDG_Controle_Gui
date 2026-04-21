@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<products>
+  <item>
+    <barcode>7890000000001</barcode>
+    <name>Item 1</name>
+    <price>19.90</price>
+    <quantity>10</quantity>
+  </item>
+  <item>
+    <barcode>7890000000002</barcode>
+    <name>Item 2</name>
+    <price>21.90</price>
+    <quantity>10</quantity>
+  </item>
+  <item>
+    <barcode>7890000000003</barcode>
+    <name>Item 3</name>
+    <price>22.90</price>
+    <quantity>10</quantity>
+  </item>
+  <item>
+    <barcode>7890000000004</barcode>
+    <name>Item 4</name>
+    <price>23.90</price>
+    <quantity>10</quantity>
+  </item>
+  <item>
+    <barcode>7890000000005</barcode>
+    <name>Item 5</name>
+    <price>24.90</price>
+    <quantity>10</quantity>
+  </item>
+  <item>
+    <barcode>7890000000006</barcode>
+    <name>Item 6</name>
+    <price>25.90</price>
+    <quantity>10</quantity>
+  </item>
+</products>

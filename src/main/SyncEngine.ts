@@ -5,97 +5,157 @@ import path from 'path';
 import fs from 'fs';
 import { app } from 'electron';
 
-// Carrega as variáveis do arquivo .env (relativo a raiz do projeto/executável)
-const envPath = app.isPackaged 
-  ? path.join(process.resourcesPath, '.env') 
-  : path.join(process.cwd(), '.env');
-dotenv.config({ path: envPath });
-
-const IMAGES_DIR = path.join(app.getPath('userData'), 'product_images');
-
-// Lê as credenciais do .env
-const SUPABASE_URL = process.env.SUPABASE_URL || '';
-const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || '';
-
-// Inicializa o cliente apenas se tiver as credenciais
-const isConfigured = SUPABASE_URL && SUPABASE_URL !== 'SUA_URL_DO_SUPABASE_AQUI' && SUPABASE_URL !== '';
-const supabase = isConfigured ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
-
 export class SyncEngine {
   private static isSyncing = false;
+  private static supabase: any = null;
+  private static imagesDir: string = '';
+
+  static init() {
+    try {
+      const envPath = app.isPackaged 
+        ? path.join(process.resourcesPath, '.env') 
+        : path.join(process.cwd(), '.env');
+      
+      if (fs.existsSync(envPath)) {
+        dotenv.config({ path: envPath });
+      }
+
+      this.imagesDir = path.join(app.getPath('userData'), 'product_images');
+      if (!fs.existsSync(this.imagesDir)) {
+        fs.mkdirSync(this.imagesDir, { recursive: true });
+      }
+
+      const url = process.env.SUPABASE_URL || '';
+      const key = process.env.SUPABASE_ANON_KEY || '';
+
+      if (url && key && url !== 'SUA_URL_DO_SUPABASE_AQUI') {
+        this.supabase = createClient(url, key);
+        console.log('[SyncEngine] Supabase configurado.');
+      }
+    } catch (err) {
+      console.error('[SyncEngine] Erro na inicialização:', err);
+    }
+  }
 
   static async start() {
+    this.init();
+    
+    // Sincronização inicial ao abrir o app
+    await this.pullFromCloud();
+
     // Tenta sincronizar a cada 30 segundos em segundo plano
     setInterval(() => {
       this.syncPendingSales();
       this.syncPendingProducts();
+      this.pullFromCloud();
     }, 30000);
     
     this.syncPendingSales();
     this.syncPendingProducts();
   }
 
+  static async pullFromCloud() {
+    if (!this.supabase) return;
+
+    try {
+      console.log('[SyncEngine] Buscando atualizações da nuvem...');
+
+      // 1. Sincronizar Lojas
+      const { data: cloudStores } = await this.supabase.from('stores').select('*');
+      if (cloudStores) {
+        for (const s of cloudStores) {
+          await run('INSERT OR REPLACE INTO stores (id, name, archived) VALUES (?, ?, ?)', 
+            [s.id, s.name, s.archived ? 1 : 0]);
+        }
+      }
+
+      // 2. Sincronizar Usuários (Para que logins funcionem em qualquer PC)
+      const { data: cloudUsers } = await this.supabase.from('users').select('*');
+      if (cloudUsers) {
+        for (const u of cloudUsers) {
+          await run('INSERT OR REPLACE INTO users (id, name, password, role) VALUES (?, ?, ?, ?)',
+            [u.id, u.name, u.password, u.role]);
+        }
+      }
+
+      // 3. Sincronizar Produtos
+      const { data: cloudProds } = await this.supabase.from('products').select('*');
+      if (cloudProds) {
+        for (const p of cloudProds) {
+          const isLocalSynced = await get('SELECT synced FROM products WHERE id = ?', [p.id]);
+          if (!isLocalSynced || isLocalSynced.synced === 1) {
+            await run('INSERT OR REPLACE INTO products (id, barcode, name, price, image, archived, synced) VALUES (?, ?, ?, ?, ?, ?, 1)', 
+              [p.id, p.barcode, p.name, p.price, p.image, p.archived ? 1 : 0]);
+          }
+        }
+      }
+
+      // 4. Sincronizar Estoque (Inventory) - Fundamental para as 3 lojas
+      const { data: cloudInv } = await this.supabase.from('inventory').select('*');
+      if (cloudInv) {
+        for (const i of cloudInv) {
+          await run('INSERT OR REPLACE INTO inventory (product_id, store_id, quantity, min_stock, sale_tolerance_days) VALUES (?, ?, ?, ?, ?)',
+            [i.product_id, i.store_id, i.quantity, i.min_stock, i.sale_tolerance_days]);
+        }
+      }
+
+      console.log('[SyncEngine] Sincronização total concluída.');
+    } catch (err) {
+      console.error('[SyncEngine] Erro na sincronização total:', err);
+    }
+  }
+
   static async syncPendingProducts() {
-    if (!supabase || this.isSyncing) return;
+    if (!this.supabase || this.isSyncing) return;
 
     const pendingProducts = await query('SELECT * FROM products WHERE synced = 0');
-    if (pendingProducts.length === 0) return;
+    const pendingInventory = await query('SELECT * FROM inventory'); // Sempre envia estoque atualizado
 
     this.isSyncing = true;
-    console.log(`[SyncEngine] Sincronizando ${pendingProducts.length} produtos...`);
 
+    // Envia Produtos
     for (const prod of pendingProducts) {
       try {
         let cloudImageUrl = prod.image;
-
-        // Se o produto tem uma imagem local e não é um link HTTP
         if (prod.image && !prod.image.startsWith('http')) {
-          const filePath = path.join(IMAGES_DIR, prod.image);
+          const filePath = path.join(this.imagesDir, prod.image);
           if (fs.existsSync(filePath)) {
-            const fileBuffer = fs.readFileSync(filePath);
-            
-            // Upload para o Bucket 'product-images' no Supabase
-            const { data, error: uploadError } = await supabase.storage
+            const { error: uploadError } = await this.supabase.storage
               .from('product-images')
-              .upload(`products/${prod.image}`, fileBuffer, {
-                contentType: 'image/png',
-                upsert: true
-              });
-
+              .upload(`products/${prod.image}`, fs.readFileSync(filePath), { upsert: true });
             if (!uploadError) {
-              const { data: { publicUrl } } = supabase.storage
-                .from('product-images')
-                .getPublicUrl(`products/${prod.image}`);
+              const { data: { publicUrl } } = this.supabase.storage.from('product-images').getPublicUrl(`products/${prod.image}`);
               cloudImageUrl = publicUrl;
             }
           }
         }
 
-        // Upsert do produto no banco online
-        const { error } = await supabase
-          .from('products')
-          .upsert({
-            id: prod.id,
-            barcode: prod.barcode,
-            name: prod.name,
-            price: prod.price,
-            image: cloudImageUrl,
-            archived: prod.archived === 1,
-            created_at: prod.created_at
-          });
+        const { error } = await this.supabase.from('products').upsert({
+          id: prod.id, barcode: prod.barcode, name: prod.name, price: prod.price, image: cloudImageUrl, archived: prod.archived === 1
+        });
 
-        if (!error) {
-          await run('UPDATE products SET synced = 1, image = ? WHERE id = ?', [cloudImageUrl, prod.id]);
-        }
-      } catch (err) {
-        console.error(`[SyncEngine] Erro ao sincronizar produto ${prod.barcode}:`, err);
-      }
+        if (!error) await run('UPDATE products SET synced = 1, image = ? WHERE id = ?', [cloudImageUrl, prod.id]);
+      } catch (e) { console.error(e); }
     }
+
+    // Envia Estoque de todas as lojas deste produto
+    for (const inv of pendingInventory) {
+      try {
+        await this.supabase.from('inventory').upsert({
+          product_id: inv.product_id,
+          store_id: inv.store_id,
+          quantity: inv.quantity,
+          min_stock: inv.min_stock,
+          sale_tolerance_days: inv.sale_tolerance_days
+        });
+      } catch (e) { }
+    }
+
     this.isSyncing = false;
   }
 
   static async syncPendingSales() {
-    if (!supabase || this.isSyncing) return;
+    if (!this.supabase || this.isSyncing) return;
     
     const pendingSales = await query('SELECT * FROM sales WHERE synced = 0');
     if (pendingSales.length === 0) return;
@@ -118,11 +178,11 @@ export class SyncEngine {
   }
 
   private static async realCloudAPI(sale: any): Promise<boolean> {
-    if (!supabase) return false;
+    if (!this.supabase) return false;
 
     try {
       const items = JSON.parse(sale.items);
-      const { error } = await supabase
+      const { error } = await this.supabase
         .from('sales')
         .insert([
           {

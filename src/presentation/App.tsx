@@ -35,13 +35,18 @@ const App: React.FC = () => {
   const [lojaId, setLojaId] = useState('');
   const [vendedor, setVendedor] = useState('');
   const [carrinho, setCarrinho] = useState<CartItem[]>([]);
+  const [stores, setStores] = useState<any[]>([]);
   const [desconto, setDesconto] = useState(0);
   const [contadorManutencao, setContadorManutencao] = useState(1);
   const [logoApp, setLogoApp] = useState('');
 
   const loadSettings = async () => {
     try {
-      const settings = await window.api.getSettings();
+      const [settings, sData] = await Promise.all([
+        window.api.getSettings(),
+        window.api.getStores()
+      ]);
+      setStores(sData || []);
       const colorSetting = settings.find((s: any) => s.key === 'primary_color');
       const logoSetting = settings.find((s: any) => s.key === 'logo');
       
@@ -118,7 +123,7 @@ const App: React.FC = () => {
     try {
       const produto = await window.api.getProductByBarcode(codigo, lojaId);
       if (produto) {
-        // Notificação de estoque multiloja
+        // Notificação de estoque multiloja dinâmica
         toast((t) => (
           <div className="flex flex-col gap-2 p-1 min-w-[200px]">
             <div className="flex items-center gap-3 border-b border-slate-100 pb-2 mb-1">
@@ -127,19 +132,13 @@ const App: React.FC = () => {
               </div>
               <span className="font-black text-slate-800 text-xs uppercase truncate">{produto.name}</span>
             </div>
-            <div className="grid grid-cols-3 gap-2 text-center">
-              <div className={`p-2 rounded-xl ${lojaId === '1' ? 'bg-brand-600 text-white ring-4 ring-brand-500/20' : 'bg-slate-50 text-slate-400'}`}>
-                <span className="text-[8px] font-black uppercase block">Loja A</span>
-                <span className="text-sm font-black">{produto.stock_1}</span>
-              </div>
-              <div className={`p-2 rounded-xl ${lojaId === '2' ? 'bg-brand-600 text-white ring-4 ring-brand-500/20' : 'bg-slate-50 text-slate-400'}`}>
-                <span className="text-[8px] font-black uppercase block">Loja B</span>
-                <span className="text-sm font-black">{produto.stock_2}</span>
-              </div>
-              <div className={`p-2 rounded-xl ${lojaId === '3' ? 'bg-brand-600 text-white ring-4 ring-brand-500/20' : 'bg-slate-50 text-slate-400'}`}>
-                <span className="text-[8px] font-black uppercase block">Loja C</span>
-                <span className="text-sm font-black">{produto.stock_3}</span>
-              </div>
+            <div className={`grid gap-2 text-center ${stores.length > 3 ? 'grid-cols-4' : 'grid-cols-3'}`}>
+              {stores.slice(0, 8).map(s => (
+                <div key={s.id} className={`p-2 rounded-xl transition-all ${lojaId === String(s.id) ? 'bg-brand-600 text-white ring-4 ring-brand-500/20' : 'bg-slate-50 text-slate-400'}`}>
+                  <span className="text-[7px] font-black uppercase block truncate">{s.name}</span>
+                  <span className="text-xs font-black">{produto.stocks?.[s.id] || 0}</span>
+                </div>
+              ))}
             </div>
           </div>
         ), { position: 'bottom-left', duration: 4000, style: { borderRadius: '20px', padding: '12px', border: '1px solid #e2e8f0' } });
