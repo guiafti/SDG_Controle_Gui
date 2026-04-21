@@ -55,14 +55,91 @@ export class SyncEngine {
 
     setInterval(() => {
       if (!this.isSyncing) {
-        this.syncPendingSales();
-        this.syncPendingProducts();
-        this.pullFromCloud();
+        this.pushToCloud();
+        // Esperamos um pequeno delay antes de puxar, para dar tempo da nuvem processar o push
+        setTimeout(() => this.pullFromCloud(), 5000);
       }
-    }, 30000);
+    }, 60000); // Aumentado para 60 segundos para maior estabilidade
     
-    this.syncPendingSales();
-    this.syncPendingProducts();
+    this.pushToCloud();
+  }
+
+  static async pushToCloud() {
+    if (!this.supabase || this.isSyncing) return;
+    this.isSyncing = true;
+    try {
+      logSync('Iniciando PUSH total para a nuvem...');
+
+      // 1. Sincronizar Lojas Pendentes (usaremos o synced local se existir, ou apenas upsert geral)
+      const stores = await query('SELECT * FROM stores');
+      if (stores.length > 0) {
+        const { error: err } = await this.supabase.from('stores').upsert(stores.map(s => ({
+          id: s.id, name: s.name, archived: s.archived === 1
+        })));
+        if (err) logSync(`Erro PUSH lojas: ${err.message}`);
+      }
+
+      // 2. Sincronizar Usuários
+      const users = await query('SELECT * FROM users');
+      if (users.length > 0) {
+        const { error: err } = await this.supabase.from('users').upsert(users.map(u => ({
+          id: u.id, name: u.name, password: u.password, role: u.role
+        })));
+        if (err) logSync(`Erro PUSH usuários: ${err.message}`);
+      }
+
+      // 3. Sincronizar Configurações
+      const settings = await query('SELECT * FROM settings');
+      if (settings.length > 0) {
+        const { error: err } = await this.supabase.from('settings').upsert(settings.map(s => ({
+          key: s.key, value: s.value
+        })));
+        if (err) logSync(`Erro PUSH settings: ${err.message}`);
+      }
+
+      // 4. Sincronizar Produtos e Imagens (Sua lógica original melhorada)
+      const pendingProducts = await query('SELECT * FROM products WHERE synced = 0');
+      for (const prod of pendingProducts) {
+        let cloudImageUrl = prod.image;
+        if (prod.image && !prod.image.startsWith('http')) {
+          const filePath = path.join(this.imagesDir, prod.image);
+          if (fs.existsSync(filePath)) {
+            const { error: uploadError } = await this.supabase.storage
+              .from('product-images')
+              .upload(`products/${prod.image}`, fs.readFileSync(filePath), { upsert: true, contentType: 'image/png' });
+            
+            if (!uploadError) {
+              const { data: { publicUrl } } = this.supabase.storage.from('product-images').getPublicUrl(`products/${prod.image}`);
+              cloudImageUrl = publicUrl;
+            }
+          }
+        }
+        const { error } = await this.supabase.from('products').upsert({
+          id: prod.id, barcode: prod.barcode, name: prod.name, price: prod.price, image: cloudImageUrl, archived: prod.archived === 1
+        });
+        if (!error) await run('UPDATE products SET synced = 1, image = ? WHERE id = ?', [cloudImageUrl, prod.id]);
+      }
+
+      // 5. Sincronizar Estoque (Inventory)
+      const inventory = await query('SELECT * FROM inventory');
+      if (inventory.length > 0) {
+        await this.supabase.from('inventory').upsert(inventory.map(i => ({
+          product_id: i.product_id, store_id: i.store_id, quantity: i.quantity, min_stock: i.min_stock, sale_tolerance_days: i.sale_tolerance_days
+        })));
+      }
+
+      // 6. Sincronizar Vendas Pendentes
+      const pendingSales = await query('SELECT * FROM sales WHERE synced = 0');
+      for (const sale of pendingSales) {
+        const success = await this.realCloudAPI(sale);
+        if (success) await run('UPDATE sales SET synced = 1 WHERE id = ?', [sale.id]);
+      }
+
+      logSync('PUSH total concluído.');
+    } catch (e: any) {
+      logSync(`FALHA NO PUSH TOTAL: ${e.message}`);
+    }
+    this.isSyncing = false;
   }
 
   static async pullFromCloud() {

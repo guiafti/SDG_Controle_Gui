@@ -180,7 +180,35 @@ ipcMain.handle('save-settings', async (_, arr) => {
 });
 
 ipcMain.handle('archive-product', async (_, { id, archived }) => { await run('UPDATE products SET archived = ?, synced = 0 WHERE id = ?', [archived ? 1 : 0, id]); return { success: true }; });
-ipcMain.handle('update-inventory-quantity', async (_, { productId, storeId, quantity }) => { await run('UPDATE inventory SET quantity = ? WHERE product_id = ? AND store_id = ?', [quantity, productId, storeId]); return { success: true }; });
+ipcMain.handle('update-inventory-quantity', async (_, { productId, storeId, quantity, minStock, saleToleranceDays }) => {
+  const qty = Number(quantity) || 0;
+  const min = Number(minStock) ?? 2;
+  const stale = Number(saleToleranceDays) ?? 30;
+
+  // 1. Salva no Supabase imediatamente se possível
+  const supabase = getSupabase();
+  if (supabase) {
+    try {
+      const { error } = await supabase.from('inventory').upsert({
+        product_id: productId,
+        store_id: storeId,
+        quantity: qty,
+        min_stock: min,
+        sale_tolerance_days: stale
+      });
+      if (error) logError(`Erro Supabase Inventory: ${error.message}`);
+      else logError(`Estoque atualizado na Nuvem: Prod ${productId} Loja ${storeId} Qtd ${qty}`);
+    } catch (e) {
+      logError(`Erro Fatal Inventory Cloud: ${e}`);
+    }
+  }
+
+  // 2. Salva no banco local
+  await run('INSERT OR REPLACE INTO inventory (product_id, store_id, quantity, min_stock, sale_tolerance_days) VALUES (?, ?, ?, ?, ?)', 
+    [productId, storeId, qty, min, stale]);
+  
+  return { success: true };
+});
 ipcMain.handle('get-product-by-barcode', async (_, bc, sid) => {
   const p = await get('SELECT * FROM products WHERE barcode = ? AND archived = 0', [cleanBarcode(bc)]);
   if (!p) return null;
