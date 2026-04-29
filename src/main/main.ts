@@ -58,7 +58,14 @@ app.whenReady().then(async () => {
 
   protocol.handle('local-img', (request) => {
     const fileName = path.basename(decodeURIComponent(request.url.replace('local-img://', '')));
-    const filePath = path.join(UPLOAD_PATH, fileName);
+    
+    // Tenta encontrar na pasta de produtos primeiro
+    let filePath = path.join(app.getPath('userData'), 'product_images', fileName);
+    if (!fs.existsSync(filePath)) {
+      // Se não achar, tenta na pasta de reparos
+      filePath = path.join(app.getPath('userData'), 'repair_images', fileName);
+    }
+
     if (!fs.existsSync(filePath)) return new Response('Not Found', { status: 404 });
     return net.fetch(pathToFileURL(filePath).toString());
   });

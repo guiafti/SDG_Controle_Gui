@@ -20,6 +20,8 @@ const RepairOrderModal: React.FC<RepairOrderModalProps> = ({ isOpen, onClose, on
   const [issue, setIssue] = useState('');
   const [price, setPrice] = useState('');
   const [destStoreId, setDestStoreId] = useState('');
+  const [returnStoreId, setReturnStoreId] = useState('');
+  const [deliveryDate, setDeliveryDate] = useState('');
 
   useEffect(() => {
     if (isOpen) {
@@ -31,7 +33,19 @@ const RepairOrderModal: React.FC<RepairOrderModalProps> = ({ isOpen, onClose, on
   const fetchStores = async () => {
     const data = await window.api.getStores(false);
     setStores(data || []);
-    if (data.length > 0) setDestStoreId(data[0].id);
+    if (data.length > 0) {
+      setDestStoreId(data[0].id);
+      const current = localStorage.getItem('selectedStoreId') || data[0].id;
+      setReturnStoreId(current);
+    }
+  };
+
+  const maskPhone = (val: string) => {
+    const cleaned = val.replace(/\D/g, '').substring(0, 11);
+    if (cleaned.length <= 10) {
+      return cleaned.replace(/(\d{2})(\d{4})(\d{4})/, '($1) $2-$3');
+    }
+    return cleaned.replace(/(\d{2})(\d{5})(\d{4})/, '($1) $2-$3');
   };
 
   const resetForm = () => {
@@ -42,6 +56,7 @@ const RepairOrderModal: React.FC<RepairOrderModalProps> = ({ isOpen, onClose, on
     setIssue('');
     setPrice('');
     setPhoto(null);
+    setDeliveryDate('');
   };
 
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -58,7 +73,7 @@ const RepairOrderModal: React.FC<RepairOrderModalProps> = ({ isOpen, onClose, on
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!customerName || !brand || !model || !destStoreId) {
+    if (!customerName || !brand || !model || !destStoreId || !returnStoreId) {
       toast.error('Preencha os campos obrigatórios!');
       return;
     }
@@ -80,7 +95,7 @@ const RepairOrderModal: React.FC<RepairOrderModalProps> = ({ isOpen, onClose, on
       const repairData = {
         id,
         customer_name: customerName,
-        customer_phone: customerPhone,
+        customer_phone: customerPhone.replace(/\D/g, ''),
         device_brand: brand,
         device_model: model,
         issue_description: issue,
@@ -88,6 +103,8 @@ const RepairOrderModal: React.FC<RepairOrderModalProps> = ({ isOpen, onClose, on
         price: Number(price) || 0,
         entry_store_id: localStorage.getItem('selectedStoreId') || '1',
         maintenance_store_id: destStoreId,
+        return_store_id: returnStoreId,
+        delivery_date: deliveryDate,
         status: 'Na Loja (Aguardando Envio)'
       };
 
@@ -111,7 +128,7 @@ const RepairOrderModal: React.FC<RepairOrderModalProps> = ({ isOpen, onClose, on
 
   return (
     <div className="fixed inset-0 bg-slate-900/90 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
-      <div className="bg-white rounded-3xl shadow-2xl max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200">
+      <div className="bg-white rounded-3xl shadow-2xl max-w-2xl w-full max-h-[95vh] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200">
         <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-brand-500 text-white rounded-xl flex items-center justify-center shadow-lg shadow-brand-500/20">
@@ -119,7 +136,7 @@ const RepairOrderModal: React.FC<RepairOrderModalProps> = ({ isOpen, onClose, on
             </div>
             <div>
               <h2 className="text-xl font-bold text-slate-800">Nova Ordem de Manutenção</h2>
-              <p className="text-xs text-slate-500 font-medium">Cadastre o aparelho e direcione para o técnico</p>
+              <p className="text-xs text-slate-500 font-medium">Cadastre o aparelho e defina o fluxo</p>
             </div>
           </div>
           <button onClick={onClose} className="w-10 h-10 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-400 transition-colors">
@@ -128,7 +145,6 @@ const RepairOrderModal: React.FC<RepairOrderModalProps> = ({ isOpen, onClose, on
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 overflow-y-auto custom-scrollbar space-y-6">
-          {/* Seção Cliente */}
           <div className="space-y-4">
             <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 pb-2">Informações do Cliente</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -142,14 +158,15 @@ const RepairOrderModal: React.FC<RepairOrderModalProps> = ({ isOpen, onClose, on
               <div className="space-y-1">
                 <label className="block text-xs font-bold text-slate-700 uppercase">Telefone / WhatsApp</label>
                 <input 
-                  type="text" value={customerPhone} onChange={e => setCustomerPhone(e.target.value)}
+                  type="text" value={customerPhone} 
+                  onChange={e => setCustomerPhone(maskPhone(e.target.value))}
+                  placeholder="(00) 00000-0000"
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none focus:border-brand-500 transition-all"
                 />
               </div>
             </div>
           </div>
 
-          {/* Seção Aparelho */}
           <div className="space-y-4">
             <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 pb-2">Detalhes do Dispositivo</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -171,43 +188,19 @@ const RepairOrderModal: React.FC<RepairOrderModalProps> = ({ isOpen, onClose, on
             <div className="space-y-1">
               <label className="block text-xs font-bold text-slate-700 uppercase">Descrição do Problema</label>
               <textarea 
-                rows={3} value={issue} onChange={e => setIssue(e.target.value)}
+                rows={2} value={issue} onChange={e => setIssue(e.target.value)}
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none focus:border-brand-500 transition-all resize-none"
                 placeholder="Descreva o que o cliente relatou..."
               />
             </div>
           </div>
 
-          {/* Foto e Destino */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-4">
-              <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 pb-2">Foto do Estado Atual</h3>
-              <div className="relative group">
-                {photo ? (
-                  <div className="relative h-40 rounded-2xl overflow-hidden border-2 border-dashed border-slate-200">
-                    <img src={photo} className="w-full h-full object-cover" alt="Preview" />
-                    <button 
-                      type="button" onClick={() => setPhoto(null)}
-                      className="absolute top-2 right-2 w-8 h-8 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                    >
-                      <i className="ph ph-trash"></i>
-                    </button>
-                  </div>
-                ) : (
-                  <label className="flex flex-col items-center justify-center h-40 rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50 hover:bg-slate-100 hover:border-brand-300 cursor-pointer transition-all">
-                    <i className="ph ph-camera text-3xl text-slate-400 mb-2"></i>
-                    <span className="text-xs font-bold text-slate-500 uppercase">Tirar ou Anexar Foto</span>
-                    <input type="file" accept="image/*" className="hidden" onChange={handlePhotoChange} />
-                  </label>
-                )}
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 pb-2">Direcionamento</h3>
+              <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 pb-2">Logística Inter-lojas</h3>
               <div className="space-y-4">
                 <div className="space-y-1">
-                  <label className="block text-xs font-bold text-slate-700 uppercase">Loja para Manutenção *</label>
+                  <label className="block text-xs font-bold text-slate-700 uppercase">Loja da Manutenção (Técnico) *</label>
                   <select 
                     required value={destStoreId} onChange={e => setDestStoreId(e.target.value)}
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none focus:border-brand-500 appearance-none font-bold text-slate-700"
@@ -218,7 +211,31 @@ const RepairOrderModal: React.FC<RepairOrderModalProps> = ({ isOpen, onClose, on
                   </select>
                 </div>
                 <div className="space-y-1">
-                  <label className="block text-xs font-bold text-slate-700 uppercase">Orçamento Inicial (R$)</label>
+                  <label className="block text-xs font-bold text-slate-700 uppercase">Loja de Retorno (Entrega Final) *</label>
+                  <select 
+                    required value={returnStoreId} onChange={e => setReturnStoreId(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none focus:border-brand-500 appearance-none font-bold text-slate-700"
+                  >
+                    {stores.map(s => (
+                      <option key={s.id} value={s.id}>{s.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 pb-2">Valores e Prazo</h3>
+              <div className="space-y-4">
+                <div className="space-y-1">
+                  <label className="block text-xs font-bold text-slate-700 uppercase">Prazo de Entrega</label>
+                  <input 
+                    type="date" value={deliveryDate} onChange={e => setDeliveryDate(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none focus:border-brand-500 font-bold text-slate-700"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="block text-xs font-bold text-slate-700 uppercase">Orçamento (R$)</label>
                   <input 
                     type="number" step="0.01" value={price} onChange={e => setPrice(e.target.value)}
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none focus:border-brand-500 font-mono text-lg font-bold text-brand-600"
@@ -226,6 +243,29 @@ const RepairOrderModal: React.FC<RepairOrderModalProps> = ({ isOpen, onClose, on
                   />
                 </div>
               </div>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 pb-2">Foto do Aparelho</h3>
+            <div className="relative group">
+              {photo ? (
+                <div className="relative h-40 rounded-2xl overflow-hidden border-2 border-dashed border-slate-200">
+                  <img src={photo} className="w-full h-full object-cover" alt="Preview" />
+                  <button 
+                    type="button" onClick={() => setPhoto(null)}
+                    className="absolute top-2 right-2 w-8 h-8 bg-red-500 text-white rounded-full flex items-center justify-center"
+                  >
+                    <i className="ph ph-trash"></i>
+                  </button>
+                </div>
+              ) : (
+                <label className="flex flex-col items-center justify-center h-40 rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50 hover:bg-slate-100 hover:border-brand-300 cursor-pointer transition-all">
+                  <i className="ph ph-camera text-3xl text-slate-400 mb-2"></i>
+                  <span className="text-[10px] font-bold text-slate-500 uppercase">Tirar Foto de Entrada</span>
+                  <input type="file" accept="image/*" className="hidden" onChange={handlePhotoChange} />
+                </label>
+              )}
             </div>
           </div>
         </form>

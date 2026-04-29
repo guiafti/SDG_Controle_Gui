@@ -74,9 +74,11 @@ export const initDatabase = async () => {
       price REAL DEFAULT 0,
       entry_store_id TEXT,
       maintenance_store_id TEXT,
+      return_store_id TEXT,
       current_store_id TEXT,
       status TEXT,
       payment_status TEXT DEFAULT 'pending',
+      delivery_date TEXT,
       synced INTEGER DEFAULT 0,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -92,7 +94,9 @@ export const initDatabase = async () => {
     { table: 'sales', col: 'synced', type: 'INTEGER DEFAULT 0' },
     { table: 'inventory', col: 'min_stock', type: 'INTEGER DEFAULT 2' },
     { table: 'inventory', col: 'sale_tolerance_days', type: 'INTEGER DEFAULT 30' },
-    { table: 'maintenance_orders', col: 'payment_status', type: "TEXT DEFAULT 'pending'" }
+    { table: 'maintenance_orders', col: 'payment_status', type: "TEXT DEFAULT 'pending'" },
+    { table: 'maintenance_orders', col: 'return_store_id', type: "TEXT" },
+    { table: 'maintenance_orders', col: 'delivery_date', type: "TEXT" }
   ];
 
   for (const m of migrations) {
