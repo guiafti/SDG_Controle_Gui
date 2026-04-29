@@ -161,7 +161,51 @@ ipcMain.handle('save-user', async (_, u: any) => {
 ipcMain.handle('get-sync-status', async () => {
   const pS = await get('SELECT count(*) as count FROM sales WHERE synced = 0');
   const pP = await get('SELECT count(*) as count FROM products WHERE synced = 0');
-  return { pending: (pS?.count || 0) + (pP?.count || 0), total: (await get('SELECT count(*) as count FROM sales'))?.count || 0 };
+  const pR = await get('SELECT count(*) as count FROM maintenance_orders WHERE synced = 0');
+  return { 
+    pending: (pS?.count || 0) + (pP?.count || 0) + (pR?.count || 0), 
+    total: (await get('SELECT count(*) as count FROM sales'))?.count || 0 
+  };
+});
+
+ipcMain.handle('get-repairs', async () => await query('SELECT * FROM maintenance_orders ORDER BY created_at DESC'));
+
+ipcMain.handle('save-repair', async (_, repair: any) => {
+  try {
+    const id = repair.id || randomUUID();
+    await run(`
+      INSERT OR REPLACE INTO maintenance_orders 
+      (id, customer_name, customer_phone, device_brand, device_model, issue_description, photo_url, price, entry_store_id, maintenance_store_id, current_store_id, status, synced, updated_at) 
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, CURRENT_TIMESTAMP)`, 
+      [id, repair.customer_name, repair.customer_phone, repair.device_brand, repair.device_model, repair.issue_description, repair.photo_url, repair.price || 0, repair.entry_store_id, repair.maintenance_store_id, repair.current_store_id || repair.entry_store_id, repair.status || 'Recebido']);
+    
+    SyncEngine.syncPendingRepairs().catch(() => {});
+    return { success: true, id };
+  } catch (err: any) {
+    logError(`Erro ao salvar OS: ${err.message}`);
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('update-repair-status', async (_, { id, status, current_store_id }) => {
+  try {
+    await run('UPDATE maintenance_orders SET status = ?, current_store_id = ?, synced = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [status, current_store_id, id]);
+    SyncEngine.syncPendingRepairs().catch(() => {});
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('upload-repair-image', async (_, { id, base64Data }) => {
+  try {
+    const fileName = `${id}.png`;
+    const repairPath = path.join(app.getPath('userData'), 'repair_images');
+    if (!fs.existsSync(repairPath)) fs.mkdirSync(repairPath, { recursive: true });
+    const filePath = path.join(repairPath, fileName);
+    fs.writeFileSync(filePath, Buffer.from(base64Data.split(',')[1], 'base64'));
+    return { success: true, fileName };
+  } catch (error) { return { success: false }; }
 });
 
 ipcMain.handle('get-low-stock-items', async () => {

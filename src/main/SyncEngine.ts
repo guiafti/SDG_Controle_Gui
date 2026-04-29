@@ -18,6 +18,7 @@ export class SyncEngine {
   private static isSyncing = false;
   private static supabase: any = null;
   private static imagesDir: string = '';
+  private static repairImagesDir: string = '';
 
   static init() {
     try {
@@ -33,6 +34,11 @@ export class SyncEngine {
       this.imagesDir = path.join(app.getPath('userData'), 'product_images');
       if (!fs.existsSync(this.imagesDir)) {
         fs.mkdirSync(this.imagesDir, { recursive: true });
+      }
+
+      this.repairImagesDir = path.join(app.getPath('userData'), 'repair_images');
+      if (!fs.existsSync(this.repairImagesDir)) {
+        fs.mkdirSync(this.repairImagesDir, { recursive: true });
       }
       
       const url = process.env.SUPABASE_URL || '';
@@ -78,7 +84,6 @@ export class SyncEngine {
           name: String(s.name).trim().toUpperCase(), 
           archived: s.archived == 1 ? 1 : 0 
         }));
-        console.log('[SYNC DEBUG] Payload Lojas (primeira):', payload[0]);
         
         const { error: err } = await this.supabase.from('stores').upsert(payload);
         if (err) {
@@ -122,10 +127,16 @@ export class SyncEngine {
         await this.syncSingleProduct(prod);
       }
 
-      // 5. Sincronizar Estoque (Inventory) - Agora com CHUNKING para evitar timeouts
+      // 5. Sincronizar Manutenções Pendentes
+      const pendingRepairs = await query('SELECT * FROM maintenance_orders WHERE synced = 0');
+      for (const repair of pendingRepairs) {
+        await this.syncSingleRepair(repair);
+      }
+
+      // 6. Sincronizar Estoque (Inventory) - Agora com CHUNKING para evitar timeouts
       await this.syncInventoryInChunks();
 
-      // 6. Sincronizar Vendas Pendentes
+      // 7. Sincronizar Vendas Pendentes
       const pendingSales = await query('SELECT * FROM sales WHERE synced = 0');
       for (const sale of pendingSales) {
         const success = await this.realCloudAPI(sale);
@@ -213,6 +224,59 @@ export class SyncEngine {
     }
   }
 
+  private static async syncSingleRepair(repair: any) {
+    try {
+      let cloudImageUrl = repair.photo_url;
+      if (repair.photo_url && !repair.photo_url.startsWith('http')) {
+        const filePath = path.join(this.repairImagesDir, repair.photo_url);
+        if (fs.existsSync(filePath)) {
+          const { error: uploadError } = await this.supabase.storage
+            .from('repair-images')
+            .upload(`repairs/${repair.photo_url}`, fs.readFileSync(filePath), { upsert: true, contentType: 'image/png' });
+          
+          if (!uploadError) {
+            const { data: { publicUrl } } = this.supabase.storage.from('repair-images').getPublicUrl(`repairs/${repair.photo_url}`);
+            cloudImageUrl = publicUrl;
+          } else {
+            console.error(`[SYNC ERROR] Erro upload foto reparo ${repair.photo_url}:`, uploadError);
+          }
+        }
+      }
+
+      const payload = {
+        id: repair.id,
+        customer_name: repair.customer_name,
+        customer_phone: repair.customer_phone,
+        device_brand: repair.device_brand,
+        device_model: repair.device_model,
+        issue_description: repair.issue_description,
+        photo_url: cloudImageUrl,
+        price: Number(repair.price || 0),
+        entry_store_id: repair.entry_store_id,
+        maintenance_store_id: repair.maintenance_store_id,
+        current_store_id: repair.current_store_id,
+        status: repair.status,
+        created_at: repair.created_at,
+        updated_at: repair.updated_at
+      };
+
+      const { error } = await this.supabase.from('maintenance_orders').upsert(payload);
+
+      if (error) {
+        console.error(`[SYNC ERROR] Erro ao sincronizar OS ${repair.id}:`, error);
+        logSync(`Erro Supabase OS ${repair.id}: ${error.message}`);
+        return false;
+      }
+      
+      await run('UPDATE maintenance_orders SET synced = 1, photo_url = ? WHERE id = ?', [cloudImageUrl, repair.id]);
+      console.log(`[SYNC SUCCESS] OS ${repair.id} sincronizada.`);
+      return true;
+    } catch (err: any) {
+      console.error(`[SYNC FATAL] Exceção ao sincronizar OS ${repair.id}:`, err);
+      return false;
+    }
+  }
+
   static async pullFromCloud() {
     if (!this.supabase) return;
     try {
@@ -249,7 +313,20 @@ export class SyncEngine {
         }
       }
 
-      // 4. Estoque
+      // 4. Manutenções
+      const { data: cloudRepairs, error: re } = await this.supabase.from('maintenance_orders').select('*');
+      if (re) console.error('[SYNC ERROR] Erro Pull OS:', re);
+      if (cloudRepairs) {
+        for (const r of cloudRepairs) {
+          const local = await get('SELECT synced FROM maintenance_orders WHERE id = ?', [r.id]);
+          if (!local || local.synced === 1) {
+            await run('INSERT OR REPLACE INTO maintenance_orders (id, customer_name, customer_phone, device_brand, device_model, issue_description, photo_url, price, entry_store_id, maintenance_store_id, current_store_id, status, synced, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)', 
+              [r.id, r.customer_name, r.customer_phone, r.device_brand, r.device_model, r.issue_description, r.photo_url, r.price, r.entry_store_id, r.maintenance_store_id, r.current_store_id, r.status, r.created_at, r.updated_at]);
+          }
+        }
+      }
+
+      // 5. Estoque
       const { data: cloudInv, error: ie } = await this.supabase.from('inventory').select('*');
       if (ie) console.error('[SYNC ERROR] Erro Pull Estoque:', ie);
       if (cloudInv) {
@@ -272,7 +349,6 @@ export class SyncEngine {
     try {
       const pendingProducts = await query('SELECT * FROM products WHERE synced = 0');
       if (pendingProducts.length > 0) {
-        console.log(`[SYNC] Sincronizando ${pendingProducts.length} produtos pendentes...`);
         for (const prod of pendingProducts) {
           await this.syncSingleProduct(prod);
         }
@@ -280,6 +356,22 @@ export class SyncEngine {
       await this.syncInventoryInChunks();
     } catch (err: any) {
       console.error('[SYNC FATAL] Falha ao sincronizar produtos pendentes:', err);
+    }
+    this.isSyncing = false;
+  }
+
+  static async syncPendingRepairs() {
+    if (!this.supabase || this.isSyncing) return;
+    this.isSyncing = true;
+    try {
+      const pendingRepairs = await query('SELECT * FROM maintenance_orders WHERE synced = 0');
+      if (pendingRepairs.length > 0) {
+        for (const repair of pendingRepairs) {
+          await this.syncSingleRepair(repair);
+        }
+      }
+    } catch (err: any) {
+      console.error('[SYNC FATAL] Falha ao sincronizar OS pendentes:', err);
     }
     this.isSyncing = false;
   }

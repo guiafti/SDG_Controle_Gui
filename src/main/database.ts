@@ -63,6 +63,23 @@ export const initDatabase = async () => {
     CREATE TABLE IF NOT EXISTS sales (id TEXT PRIMARY KEY, total REAL NOT NULL, payment_method TEXT NOT NULL, vendedor TEXT NOT NULL, store_id TEXT, items TEXT NOT NULL, discount REAL DEFAULT 0, synced INTEGER DEFAULT 0, created_at DATETIME DEFAULT CURRENT_TIMESTAMP);
     CREATE TABLE IF NOT EXISTS commissions (id TEXT PRIMARY KEY, sale_id TEXT, vendedor TEXT NOT NULL, value REAL NOT NULL, percentage REAL NOT NULL, status TEXT DEFAULT 'pending', created_at DATETIME DEFAULT CURRENT_TIMESTAMP);
     CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT);
+    CREATE TABLE IF NOT EXISTS maintenance_orders (
+      id TEXT PRIMARY KEY,
+      customer_name TEXT,
+      customer_phone TEXT,
+      device_brand TEXT,
+      device_model TEXT,
+      issue_description TEXT,
+      photo_url TEXT,
+      price REAL DEFAULT 0,
+      entry_store_id TEXT,
+      maintenance_store_id TEXT,
+      current_store_id TEXT,
+      status TEXT,
+      synced INTEGER DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
   `);
 
   // Migrações básicas

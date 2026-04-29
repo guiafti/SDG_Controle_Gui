@@ -5,6 +5,10 @@ export interface ElectronAPI {
   saveSale: (sale: any) => Promise<any>;
   importXmlProducts: (xmlData: string, storeId: string) => Promise<any>;
   getSyncStatus: () => Promise<{ pending: number, total: number }>;
+  getRepairs: () => Promise<any[]>;
+  saveRepair: (repair: any) => Promise<any>;
+  updateRepairStatus: (data: {id: string, status: string, current_store_id: string}) => Promise<any>;
+  uploadRepairImage: (data: {id: string, base64Data: string}) => Promise<any>;
   downloadProtocolTemplate: () => Promise<string>;
   getStores: (includeArchived?: boolean) => Promise<any[]>;
   saveStore: (store: {id?: string, name: string}) => Promise<{success: boolean, error?: string}>;

@@ -15,6 +15,7 @@ import Inventory from './pages/Inventory';
 import Users from './pages/Users';
 import Stores from './pages/Stores';
 import Settings from './pages/Settings';
+import Repairs from './pages/Repairs';
 import { CartItem } from '../domain/CartItem';
 
 import TitleBar from './components/TitleBar';
@@ -201,6 +202,7 @@ const App: React.FC = () => {
       case 'users': return <Users />;
       case 'stores': return <Stores />;
       case 'settings': return <Settings />;
+      case 'repairs': return <Repairs />;
       default: return <Dashboard />;
     }
   };
@@ -233,7 +235,8 @@ const App: React.FC = () => {
                 adminSubView === 'inventory' ? 'Gestão de Estoque' : 
                 adminSubView === 'comissoes' ? 'Comissões' : 
                 adminSubView === 'settings' ? 'Personalização' : 
-                adminSubView === 'stores' ? 'Gerenciamento de Lojas' : 'Gestão de Equipe'
+                adminSubView === 'stores' ? 'Gerenciamento de Lojas' : 
+                adminSubView === 'repairs' ? 'Assistência Técnica' : 'Gestão de Equipe'
               } />
               {renderAdminView()}
             </main>

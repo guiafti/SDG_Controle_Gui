@@ -47,6 +47,14 @@ const Sidebar: React.FC<SidebarProps> = ({ activeView, onSwitchView, onOpenPDV, 
           <i className="ph ph-package text-xl"></i>
           Estoque / Produtos
         </button>
+
+        <button 
+          onClick={() => onSwitchView('repairs')}
+          className={`nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-lg font-medium ${activeView === 'repairs' ? 'bg-brand-500 text-white' : 'hover:bg-slate-800 text-slate-300 hover:text-white'}`}
+        >
+          <i className="ph ph-wrench text-xl"></i>
+          Assistência Técnica
+        </button>
         
         {role === 'admin' && (
           <>
