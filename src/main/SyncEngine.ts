@@ -256,6 +256,7 @@ export class SyncEngine {
         maintenance_store_id: repair.maintenance_store_id,
         current_store_id: repair.current_store_id,
         status: repair.status,
+        payment_status: repair.payment_status || 'pending',
         created_at: repair.created_at,
         updated_at: repair.updated_at
       };

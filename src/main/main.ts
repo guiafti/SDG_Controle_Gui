@@ -175,9 +175,9 @@ ipcMain.handle('save-repair', async (_, repair: any) => {
     const id = repair.id || randomUUID();
     await run(`
       INSERT OR REPLACE INTO maintenance_orders 
-      (id, customer_name, customer_phone, device_brand, device_model, issue_description, photo_url, price, entry_store_id, maintenance_store_id, current_store_id, status, synced, updated_at) 
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, CURRENT_TIMESTAMP)`, 
-      [id, repair.customer_name, repair.customer_phone, repair.device_brand, repair.device_model, repair.issue_description, repair.photo_url, repair.price || 0, repair.entry_store_id, repair.maintenance_store_id, repair.current_store_id || repair.entry_store_id, repair.status || 'Recebido']);
+      (id, customer_name, customer_phone, device_brand, device_model, issue_description, photo_url, price, entry_store_id, maintenance_store_id, current_store_id, status, payment_status, synced, updated_at) 
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, CURRENT_TIMESTAMP)`, 
+      [id, repair.customer_name, repair.customer_phone, repair.device_brand, repair.device_model, repair.issue_description, repair.photo_url, repair.price || 0, repair.entry_store_id, repair.maintenance_store_id, repair.current_store_id || repair.entry_store_id, repair.status || 'Na Loja (Aguardando Envio)', repair.payment_status || 'pending']);
     
     SyncEngine.syncPendingRepairs().catch(() => {});
     return { success: true, id };
@@ -190,6 +190,16 @@ ipcMain.handle('save-repair', async (_, repair: any) => {
 ipcMain.handle('update-repair-status', async (_, { id, status, current_store_id }) => {
   try {
     await run('UPDATE maintenance_orders SET status = ?, current_store_id = ?, synced = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [status, current_store_id, id]);
+    SyncEngine.syncPendingRepairs().catch(() => {});
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('update-repair-payment', async (_, { id, payment_status }) => {
+  try {
+    await run('UPDATE maintenance_orders SET payment_status = ?, synced = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [payment_status, id]);
     SyncEngine.syncPendingRepairs().catch(() => {});
     return { success: true };
   } catch (err: any) {

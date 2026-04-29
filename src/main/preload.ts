@@ -10,6 +10,7 @@ contextBridge.exposeInMainWorld('api', {
   getRepairs: () => ipcRenderer.invoke('get-repairs'),
   saveRepair: (repair: any) => ipcRenderer.invoke('save-repair', repair),
   updateRepairStatus: (data: {id: string, status: string, current_store_id: string}) => ipcRenderer.invoke('update-repair-status', data),
+  updateRepairPayment: (data: {id: string, payment_status: string}) => ipcRenderer.invoke('update-repair-payment', data),
   uploadRepairImage: (data: {id: string, base64Data: string}) => ipcRenderer.invoke('upload-repair-image', data),
   downloadProtocolTemplate: () => ipcRenderer.invoke('download-protocol-template'),
   getStores: (includeArchived?: boolean) => ipcRenderer.invoke('get-stores', includeArchived),

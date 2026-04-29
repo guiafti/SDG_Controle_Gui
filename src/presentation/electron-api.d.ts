@@ -8,6 +8,7 @@ export interface ElectronAPI {
   getRepairs: () => Promise<any[]>;
   saveRepair: (repair: any) => Promise<any>;
   updateRepairStatus: (data: {id: string, status: string, current_store_id: string}) => Promise<any>;
+  updateRepairPayment: (data: {id: string, payment_status: string}) => Promise<any>;
   uploadRepairImage: (data: {id: string, base64Data: string}) => Promise<any>;
   downloadProtocolTemplate: () => Promise<string>;
   getStores: (includeArchived?: boolean) => Promise<any[]>;

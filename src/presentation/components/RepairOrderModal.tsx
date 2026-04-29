@@ -88,7 +88,7 @@ const RepairOrderModal: React.FC<RepairOrderModalProps> = ({ isOpen, onClose, on
         price: Number(price) || 0,
         entry_store_id: localStorage.getItem('selectedStoreId') || '1',
         maintenance_store_id: destStoreId,
-        status: 'Recebido'
+        status: 'Na Loja (Aguardando Envio)'
       };
 
       const result = await window.api.saveRepair(repairData);
