@@ -70,13 +70,23 @@ export class SyncEngine {
     try {
       logSync('Iniciando PUSH total para a nuvem...');
 
-      // 1. Sincronizar Lojas Pendentes (usaremos o synced local se existir, ou apenas upsert geral)
+      // 1. Sincronizar Lojas Pendentes
       const stores = await query('SELECT * FROM stores');
       if (stores.length > 0) {
-        const { error: err } = await this.supabase.from('stores').upsert(stores.map(s => ({
-          id: s.id, name: s.name, archived: s.archived === 1
-        })));
-        if (err) logSync(`Erro PUSH lojas: ${err.message}`);
+        const payload = stores.map(s => ({
+          id: s.id, 
+          name: String(s.name).trim().toUpperCase(), 
+          archived: s.archived == 1 ? 1 : 0 
+        }));
+        console.log('[SYNC DEBUG] Payload Lojas (primeira):', payload[0]);
+        
+        const { error: err } = await this.supabase.from('stores').upsert(payload);
+        if (err) {
+          console.error('[SYNC ERROR] Erro PUSH lojas:', err);
+          logSync(`Erro PUSH lojas: ${err.message}`);
+        } else {
+          console.log('[SYNC SUCCESS] Lojas sincronizadas.');
+        }
       }
 
       // 2. Sincronizar Usuários
@@ -85,48 +95,35 @@ export class SyncEngine {
         const { error: err } = await this.supabase.from('users').upsert(users.map(u => ({
           id: u.id, name: u.name, password: u.password, role: u.role
         })));
-        if (err) logSync(`Erro PUSH usuários: ${err.message}`);
+        if (err) {
+          console.error('[SYNC ERROR] Erro PUSH usuários:', err);
+          logSync(`Erro PUSH usuários: ${err.message}`);
+        }
       }
 
       // 3. Sincronizar Configurações
       const settings = await query('SELECT * FROM settings');
       if (settings.length > 0) {
         const { error: err } = await this.supabase.from('settings').upsert(settings.map(s => ({
-          key: s.key, value: s.value
+          key: s.key, 
+          value: String(s.value || '')
         })));
-        if (err) logSync(`Erro PUSH settings: ${err.message}`);
+        if (err) {
+          console.error('[SYNC ERROR] Erro PUSH settings:', err);
+          logSync(`Erro PUSH settings: ${err.message}`);
+        } else {
+          console.log('[SYNC SUCCESS] Configurações sincronizadas.');
+        }
       }
 
-      // 4. Sincronizar Produtos e Imagens (Sua lógica original melhorada)
+      // 4. Sincronizar Produtos e Imagens
       const pendingProducts = await query('SELECT * FROM products WHERE synced = 0');
       for (const prod of pendingProducts) {
-        let cloudImageUrl = prod.image;
-        if (prod.image && !prod.image.startsWith('http')) {
-          const filePath = path.join(this.imagesDir, prod.image);
-          if (fs.existsSync(filePath)) {
-            const { error: uploadError } = await this.supabase.storage
-              .from('product-images')
-              .upload(`products/${prod.image}`, fs.readFileSync(filePath), { upsert: true, contentType: 'image/png' });
-            
-            if (!uploadError) {
-              const { data: { publicUrl } } = this.supabase.storage.from('product-images').getPublicUrl(`products/${prod.image}`);
-              cloudImageUrl = publicUrl;
-            }
-          }
-        }
-        const { error } = await this.supabase.from('products').upsert({
-          id: prod.id, barcode: prod.barcode, name: prod.name, price: prod.price, image: cloudImageUrl, archived: prod.archived === 1
-        });
-        if (!error) await run('UPDATE products SET synced = 1, image = ? WHERE id = ?', [cloudImageUrl, prod.id]);
+        await this.syncSingleProduct(prod);
       }
 
-      // 5. Sincronizar Estoque (Inventory)
-      const inventory = await query('SELECT * FROM inventory');
-      if (inventory.length > 0) {
-        await this.supabase.from('inventory').upsert(inventory.map(i => ({
-          product_id: i.product_id, store_id: i.store_id, quantity: i.quantity, min_stock: i.min_stock, sale_tolerance_days: i.sale_tolerance_days
-        })));
-      }
+      // 5. Sincronizar Estoque (Inventory) - Agora com CHUNKING para evitar timeouts
+      await this.syncInventoryInChunks();
 
       // 6. Sincronizar Vendas Pendentes
       const pendingSales = await query('SELECT * FROM sales WHERE synced = 0');
@@ -138,8 +135,82 @@ export class SyncEngine {
       logSync('PUSH total concluído.');
     } catch (e: any) {
       logSync(`FALHA NO PUSH TOTAL: ${e.message}`);
+      console.error('[SYNC FATAL] Falha no push total:', e);
     }
     this.isSyncing = false;
+  }
+
+  private static async syncInventoryInChunks() {
+    try {
+      const inventory = await query('SELECT * FROM inventory');
+      if (inventory.length === 0) return;
+
+      const chunkSize = 50; // Sincronizar de 50 em 50 para estabilidade
+      for (let i = 0; i < inventory.length; i += chunkSize) {
+        const chunk = inventory.slice(i, i + chunkSize);
+        const { error: invErr } = await this.supabase.from('inventory').upsert(chunk.map(item => ({
+          product_id: item.product_id, 
+          store_id: item.store_id, 
+          quantity: Number(item.quantity || 0), 
+          min_stock: Number(item.min_stock || 0), 
+          sale_tolerance_days: Number(item.sale_tolerance_days || 0)
+        })));
+
+        if (invErr) {
+          console.error(`[SYNC ERROR] Erro no chunk de estoque (${i}-${i + chunkSize}):`, invErr);
+          logSync(`Erro PUSH estoque chunk: ${invErr.message}`);
+        }
+      }
+      console.log('[SYNC SUCCESS] Estoque sincronizado (em chunks).');
+    } catch (err: any) {
+      console.error('[SYNC FATAL] Erro ao processar estoque:', err);
+    }
+  }
+
+  private static async syncSingleProduct(prod: any) {
+    try {
+      let cloudImageUrl = prod.image;
+      if (prod.image && !prod.image.startsWith('http')) {
+        const filePath = path.join(this.imagesDir, prod.image);
+        if (fs.existsSync(filePath)) {
+          const { error: uploadError } = await this.supabase.storage
+            .from('product-images')
+            .upload(`products/${prod.image}`, fs.readFileSync(filePath), { upsert: true, contentType: 'image/png' });
+          
+          if (!uploadError) {
+            const { data: { publicUrl } } = this.supabase.storage.from('product-images').getPublicUrl(`products/${prod.image}`);
+            cloudImageUrl = publicUrl;
+          } else {
+            console.error(`[SYNC ERROR] Erro upload imagem ${prod.image}:`, uploadError);
+          }
+        }
+      }
+
+      const payload = {
+        id: prod.id,
+        barcode: String(prod.barcode || ''),
+        name: String(prod.name || ''),
+        price: Number(prod.price || 0),
+        image: cloudImageUrl,
+        archived: prod.archived == 1 ? 1 : 0, 
+        category_id: prod.category_id || null
+      };
+
+      const { error } = await this.supabase.from('products').upsert(payload);
+
+      if (error) {
+        console.error(`[SYNC ERROR] Erro ao sincronizar produto ${prod.id} (${prod.name}):`, error);
+        logSync(`Erro Supabase Produto ${prod.id}: ${error.message} - Detalhes: ${JSON.stringify(error)}`);
+        return false;
+      }
+      
+      await run('UPDATE products SET synced = 1, image = ? WHERE id = ?', [cloudImageUrl, prod.id]);
+      console.log(`[SYNC SUCCESS] Produto ${prod.name} sincronizado.`);
+      return true;
+    } catch (err: any) {
+      console.error(`[SYNC FATAL] Exceção ao sincronizar produto ${prod.id}:`, err);
+      return false;
+    }
   }
 
   static async pullFromCloud() {
@@ -149,7 +220,7 @@ export class SyncEngine {
 
       // 1. Lojas
       const { data: cloudStores, error: se } = await this.supabase.from('stores').select('*');
-      if (se) logSync(`Erro ao puxar lojas: ${se.message}`);
+      if (se) console.error('[SYNC ERROR] Erro Pull Lojas:', se);
       if (cloudStores) {
         for (const s of cloudStores) {
           await run('INSERT OR REPLACE INTO stores (id, name, archived) VALUES (?, ?, ?)', [s.id, s.name, s.archived ? 1 : 0]);
@@ -158,7 +229,7 @@ export class SyncEngine {
 
       // 2. Usuários
       const { data: cloudUsers, error: ue } = await this.supabase.from('users').select('*');
-      if (ue) logSync(`Erro ao puxar usuários: ${ue.message}`);
+      if (ue) console.error('[SYNC ERROR] Erro Pull Usuários:', ue);
       if (cloudUsers) {
         for (const u of cloudUsers) {
           await run('INSERT OR REPLACE INTO users (id, name, password, role) VALUES (?, ?, ?, ?)', [u.id, u.name, u.password, u.role]);
@@ -167,12 +238,11 @@ export class SyncEngine {
 
       // 3. Produtos
       const { data: cloudProds, error: pe } = await this.supabase.from('products').select('*');
-      if (pe) logSync(`Erro ao puxar produtos: ${pe.message}`);
+      if (pe) console.error('[SYNC ERROR] Erro Pull Produtos:', pe);
       if (cloudProds) {
-        logSync(`Recebidos ${cloudProds.length} produtos da nuvem.`);
         for (const p of cloudProds) {
-          const isLocalSynced = await get('SELECT synced FROM products WHERE id = ?', [p.id]);
-          if (!isLocalSynced || isLocalSynced.synced === 1) {
+          const local = await get('SELECT synced FROM products WHERE id = ?', [p.id]);
+          if (!local || local.synced === 1) {
             await run('INSERT OR REPLACE INTO products (id, barcode, name, price, image, archived, synced) VALUES (?, ?, ?, ?, ?, ?, 1)', 
               [p.id, p.barcode, p.name, p.price, p.image, p.archived ? 1 : 0]);
           }
@@ -181,7 +251,7 @@ export class SyncEngine {
 
       // 4. Estoque
       const { data: cloudInv, error: ie } = await this.supabase.from('inventory').select('*');
-      if (ie) logSync(`Erro ao puxar estoque: ${ie.message}`);
+      if (ie) console.error('[SYNC ERROR] Erro Pull Estoque:', ie);
       if (cloudInv) {
         for (const i of cloudInv) {
           await run('INSERT OR REPLACE INTO inventory (product_id, store_id, quantity, min_stock, sale_tolerance_days) VALUES (?, ?, ?, ?, ?)',
@@ -192,6 +262,7 @@ export class SyncEngine {
       logSync('PULL finalizado com sucesso.');
     } catch (err: any) {
       logSync(`FALHA NO PULL: ${err.message}`);
+      console.error('[SYNC FATAL] Falha no pull:', err);
     }
   }
 
@@ -201,53 +272,14 @@ export class SyncEngine {
     try {
       const pendingProducts = await query('SELECT * FROM products WHERE synced = 0');
       if (pendingProducts.length > 0) {
-        logSync(`Enviando ${pendingProducts.length} produtos pendentes...`);
+        console.log(`[SYNC] Sincronizando ${pendingProducts.length} produtos pendentes...`);
         for (const prod of pendingProducts) {
-          let cloudImageUrl = prod.image;
-          if (prod.image && !prod.image.startsWith('http')) {
-            const filePath = path.join(this.imagesDir, prod.image);
-            if (fs.existsSync(filePath)) {
-              logSync(`Subindo imagem: ${prod.image}...`);
-              const { error: uploadError } = await this.supabase.storage
-                .from('product-images')
-                .upload(`products/${prod.image}`, fs.readFileSync(filePath), { upsert: true, contentType: 'image/png' });
-              
-              if (uploadError) {
-                logSync(`Erro no upload da imagem ${prod.image}: ${uploadError.message}`);
-              } else {
-                const { data: { publicUrl } } = this.supabase.storage
-                  .from('product-images')
-                  .getPublicUrl(`products/${prod.image}`);
-                cloudImageUrl = publicUrl;
-                logSync(`Imagem disponível em: ${cloudImageUrl}`);
-              }
-            }
-          }
-          const { error } = await this.supabase.from('products').upsert({
-            id: prod.id, barcode: prod.barcode, name: prod.name, price: prod.price, image: cloudImageUrl, archived: prod.archived === 1
-          });
-          if (!error) {
-            await run('UPDATE products SET synced = 1, image = ? WHERE id = ?', [cloudImageUrl, prod.id]);
-            logSync(`Produto ${prod.name} sincronizado na nuvem.`);
-          } else {
-            logSync(`Erro ao subir produto ${prod.name}: ${error.message}`);
-          }
+          await this.syncSingleProduct(prod);
         }
       }
-
-      const inventory = await query('SELECT * FROM inventory');
-      if (inventory.length > 0) {
-        const { error: invErr } = await this.supabase.from('inventory').upsert(inventory.map(i => ({
-          product_id: i.product_id,
-          store_id: i.store_id,
-          quantity: i.quantity,
-          min_stock: i.min_stock,
-          sale_tolerance_days: i.sale_tolerance_days
-        })));
-        if (invErr) logSync(`Erro ao subir estoque: ${invErr.message}`);
-      }
+      await this.syncInventoryInChunks();
     } catch (err: any) {
-      logSync(`FALHA NO PUSH DE PRODUTOS: ${err.message}`);
+      console.error('[SYNC FATAL] Falha ao sincronizar produtos pendentes:', err);
     }
     this.isSyncing = false;
   }
@@ -289,11 +321,13 @@ export class SyncEngine {
         }]);
 
       if (error) {
+        console.error(`[SYNC ERROR] Erro Supabase Venda ${sale.id}:`, error);
         logSync(`Erro Supabase Venda: ${error.message}`);
         return false;
       }
       return true;
     } catch (err: any) {
+      console.error(`[SYNC FATAL] Erro Rede Venda ${sale.id}:`, err);
       logSync(`Erro Rede Venda: ${err.message}`);
       return false;
     }

@@ -15,16 +15,21 @@ const logError = (msg: string) => {
   console.error(msg);
 };
 
+let supabaseClient: any = null;
 const getSupabase = () => {
+  if (supabaseClient) return supabaseClient;
   const url = process.env.SUPABASE_URL || '';
   const key = process.env.SUPABASE_ANON_KEY || '';
-  if (url && url !== 'SUA_URL_DO_SUPABASE_AQUI' && url !== '') return createClient(url, key);
+  if (url && url !== 'SUA_URL_DO_SUPABASE_AQUI' && url !== '') {
+    supabaseClient = createClient(url, key);
+    return supabaseClient;
+  }
   return null;
 };
 
 process.on('uncaughtException', (error) => {
   logError(`FALHA CRÍTICA: ${error.message}`);
-  app.quit();
+  // app.quit(); // Evitar fechar em erro não fatal de rede
 });
 
 protocol.registerSchemesAsPrivileged([{ scheme: 'local-img', privileges: { standard: true, secure: true, supportFetchAPI: true } }]);
@@ -38,7 +43,7 @@ function createWindow() {
   });
   if (!app.isPackaged) {
     win.loadURL('http://127.0.0.1:5173');
-    win.webContents.openDevTools();
+    // win.webContents.openDevTools();
   } else {
     win.loadFile(path.join(__dirname, '..', 'index.html'));
   }
@@ -47,7 +52,7 @@ function createWindow() {
 app.whenReady().then(async () => {
   const envPath = app.isPackaged ? path.join(process.resourcesPath, '.env') : path.join(process.cwd(), '.env');
   if (fs.existsSync(envPath)) require('dotenv').config({ path: envPath });
-  
+
   UPLOAD_PATH = path.join(app.getPath('userData'), 'product_images');
   if (!fs.existsSync(UPLOAD_PATH)) fs.mkdirSync(UPLOAD_PATH, { recursive: true });
 
@@ -72,22 +77,25 @@ ipcMain.handle('get-app-title', async () => (await get('SELECT value FROM settin
 
 ipcMain.handle('get-all-products', async () => {
   const supabase = getSupabase();
+
+  // Se houver nuvem, tentamos puxar atualizações em background, mas SEM bloquear o retorno local
   if (supabase) {
-    try {
-      const { data: products } = await supabase.from('products').select('*').order('name');
-      const { data: inventory } = await supabase.from('inventory').select('*');
+    supabase.from('products').select('*').then(async ({ data: products }) => {
       if (products) {
-        for (const p of products) await run('INSERT OR REPLACE INTO products (id, barcode, name, price, image, archived) VALUES (?, ?, ?, ?, ?, ?)', [p.id, p.barcode, p.name, p.price, p.image, p.archived ? 1 : 0]);
-        return products.map(p => {
-          const stocks: any = {};
-          (inventory || []).filter(i => i.product_id === p.id).forEach(i => stocks[i.store_id] = i.quantity);
-          return { ...p, stocks, archived: p.archived ? 1 : 0 };
-        });
+        for (const p of products) {
+          const local = await get('SELECT synced FROM products WHERE id = ?', [p.id]);
+          if (!local || local.synced === 1) {
+            await run('INSERT OR REPLACE INTO products (id, barcode, name, price, image, archived, synced) VALUES (?, ?, ?, ?, ?, ?, 1)', 
+              [p.id, p.barcode, p.name, p.price, p.image, p.archived ? 1 : 0]);
+          }
+        }
       }
-    } catch (e) {}
+    }).catch(() => {});
   }
+
   const products = await query('SELECT * FROM products ORDER BY archived ASC, name ASC');
   const inventory = await query('SELECT * FROM inventory');
+
   return products.map(p => {
     const stocks: any = {};
     inventory.filter(i => i.product_id === p.id).forEach(i => stocks[i.store_id] = i.quantity);
@@ -96,20 +104,31 @@ ipcMain.handle('get-all-products', async () => {
 });
 
 ipcMain.handle('save-manual-product', async (_, p: any) => {
-  const id = p.id || randomUUID();
-  const name = cleanText(p.name);
-  const barcode = cleanBarcode(p.barcode);
-  const price = Number(p.price) || 0;
-  const image = p.image || null;
+  try {
+    const id = p.id || randomUUID();
+    const name = cleanText(p.name);
+    const barcode = cleanBarcode(p.barcode);
+    const price = Number(p.price) || 0;
+    const image = p.image || null;
 
-  if (p.id) {
-    await run('UPDATE products SET name = ?, barcode = ?, price = ?, image = ?, synced = 0 WHERE id = ?', [name, barcode, price, image, id]);
-  } else {
-    await run('INSERT INTO products (id, name, barcode, price, image, synced) VALUES (?, ?, ?, ?, ?, 0)', [id, name, barcode, price, image]);
-    const stores = await query('SELECT id FROM stores');
-    for (const s of stores) await run('INSERT OR IGNORE INTO inventory (product_id, store_id, quantity) VALUES (?, ?, 0)', [id, s.id]);
+    if (p.id) {
+      await run('UPDATE products SET name = ?, barcode = ?, price = ?, image = ?, synced = 0 WHERE id = ?', [name, barcode, price, image, id]);
+    } else {
+      await run('INSERT INTO products (id, name, barcode, price, image, synced) VALUES (?, ?, ?, ?, ?, 0)', [id, name, barcode, price, image]);
+      const stores = await query('SELECT id FROM stores');
+      for (const s of stores) {
+        await run('INSERT OR IGNORE INTO inventory (product_id, store_id, quantity) VALUES (?, ?, 0)', [id, s.id]);
+      }
+    }
+
+    // Forçar uma tentativa de sincronização imediata
+    SyncEngine.syncPendingProducts().catch(() => {});
+
+    return { success: true };
+  } catch (error: any) {
+    logError(`Erro ao salvar produto: ${error.message}`);
+    return { success: false, error: error.message };
   }
-  return { success: true };
 });
 
 ipcMain.handle('save-sale', async (_, sale: any) => {
