@@ -31,7 +31,8 @@ export interface ElectronAPI {
   getSettings: () => Promise<{key: string, value: string}[]>;
   saveSettings: (settings: {key: string, value: string}[]) => Promise<any>;
   archiveProduct: (data: {id: string, archived: boolean}) => Promise<any>;
-  updateInventoryQuantity: (data: {productId: string, storeId: string, quantity: number}) => Promise<any>;
+  updateInventoryQuantity: (data: {productId: string, store_id: string, quantity: number}) => Promise<any>;
+  printReceipt: (data: {sale: any, storeName: string, logo?: string}) => Promise<any>;
   uploadProductImage: (data: {barcode: string, base64Data: string}) => Promise<any>;
   minimizeWindow: () => void;
   maximizeWindow: () => void;

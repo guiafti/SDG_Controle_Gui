@@ -5,6 +5,7 @@ import { pathToFileURL } from 'url';
 import { initDatabase, get, run, query } from './database';
 import { GuardianProtocol } from './GuardianProtocol';
 import { SyncEngine } from './SyncEngine';
+import { generateReceiptHTML } from './ReceiptTemplate';
 import { randomUUID } from 'node:crypto';
 import { createClient } from '@supabase/supabase-js';
 
@@ -139,13 +140,17 @@ ipcMain.handle('save-manual-product', async (_, p: any) => {
 });
 
 ipcMain.handle('save-sale', async (_, sale: any) => {
-  const saleId = randomUUID();
-  await run(`INSERT INTO sales (id, total, discount, payment_method, vendedor, store_id, items, synced) VALUES (?, ?, ?, ?, ?, ?, ?, 0)`, 
-    [saleId, sale.total, sale.discount || 0, sale.payment_method, sale.vendedor, sale.store_id, JSON.stringify(sale.items)]);
-  for (const item of sale.items) {
-    if (!String(item.id).startsWith('OS-')) await run(`UPDATE inventory SET quantity = quantity - ? WHERE product_id = ? AND store_id = ?`, [item.qtd, item.id, sale.store_id]);
+  try {
+    const saleId = randomUUID();
+    await run(`INSERT INTO sales (id, total, discount, payment_method, vendedor, store_id, items, synced) VALUES (?, ?, ?, ?, ?, ?, ?, 0)`, 
+      [saleId, sale.total, sale.discount || 0, sale.payment_method, sale.vendedor, sale.store_id, JSON.stringify(sale.items)]);
+    for (const item of sale.items) {
+      if (!String(item.id).startsWith('OS-')) await run(`UPDATE inventory SET quantity = quantity - ? WHERE product_id = ? AND store_id = ?`, [item.qtd, item.id, sale.store_id]);
+    }
+    return { success: true, saleId };
+  } catch (err: any) {
+    return { success: false, error: err.message };
   }
-  return { success: true, saleId };
 });
 
 ipcMain.handle('get-stores', async (_, inc) => inc ? await query('SELECT * FROM stores ORDER BY archived ASC, name ASC') : await query('SELECT * FROM stores WHERE archived = 0 ORDER BY name ASC'));
@@ -364,6 +369,18 @@ ipcMain.handle('upload-product-image', async (_, { barcode, base64Data }) => {
     fs.writeFileSync(filePath, Buffer.from(base64Data.split(',')[1], 'base64'));
     return { success: true, fileName };
   } catch (error) { return { success: false }; }
+});
+
+ipcMain.handle('print-receipt', async (_, { sale, storeName, logo }) => {
+  const printWin = new BrowserWindow({ show: false, webPreferences: { nodeIntegration: true } });
+  const html = generateReceiptHTML(sale, storeName, logo);
+  
+  // Use data URL to load the HTML directly
+  const dataUrl = `data:text/html;charset=utf-8,${encodeURIComponent(html)}`;
+  await printWin.loadURL(dataUrl);
+  
+  // The script inside the HTML will handle window.print() and window.close()
+  return { success: true };
 });
 
 ipcMain.on('window-minimize', (e) => BrowserWindow.fromWebContents(e.sender)?.minimize());

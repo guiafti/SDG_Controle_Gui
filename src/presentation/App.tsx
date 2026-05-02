@@ -178,11 +178,43 @@ const App: React.FC = () => {
     }
     const subtotal = carrinho.reduce((acc, item) => acc + (item.preco * item.qtd), 0);
     const totalFinal = Math.max(0, subtotal - desconto);
-    const sale = { total: totalFinal, discount: desconto, payment_method: paymentMethod, vendedor, store_id: lojaId, items: carrinho };
+    const saleData = { total: totalFinal, discount: desconto, payment_method: paymentMethod, vendedor, store_id: lojaId, items: carrinho };
+    
     try {
-      await window.api.saveSale(sale);
-      toast.success(`VENDA CONCLUÍDA!\nTotal: ${totalFinal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}`);
-      setCarrinho([]); setDesconto(0);
+      const result = await window.api.saveSale(saleData);
+      if (result.success) {
+        toast((t) => (
+          <div className="flex flex-col gap-4 p-2 text-center">
+            <div className="w-16 h-16 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-2">
+              <i className="ph ph-check-circle text-5xl"></i>
+            </div>
+            <h3 className="font-black text-slate-800 text-xl uppercase">Venda Concluída!</h3>
+            <p className="text-sm text-slate-500 font-bold uppercase tracking-widest">Total: {totalFinal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
+            
+            <div className="flex flex-col gap-2 mt-2">
+              <button 
+                onClick={async () => {
+                  toast.dismiss(t.id);
+                  await window.api.printReceipt({ sale: { ...saleData, id: result.saleId }, storeName: loja, logo: logoApp });
+                  setCarrinho([]); setDesconto(0);
+                }}
+                className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black flex items-center justify-center gap-3 hover:bg-black transition-all uppercase text-xs tracking-widest"
+              >
+                <i className="ph ph-printer text-2xl"></i> Imprimir Comprovante
+              </button>
+              <button 
+                onClick={() => {
+                  toast.dismiss(t.id);
+                  setCarrinho([]); setDesconto(0);
+                }}
+                className="w-full py-4 bg-slate-100 text-slate-500 rounded-2xl font-black hover:bg-slate-200 transition-all uppercase text-xs tracking-widest"
+              >
+                Novo Pedido (Sem Imprimir)
+              </button>
+            </div>
+          </div>
+        ), { duration: Infinity, position: 'top-center', style: { padding: '30px', borderRadius: '32px', border: '1px solid #e2e8f0', minWidth: '350px' } });
+      }
     } catch (error) { toast.error('Erro ao salvar venda!'); }
   };
 
