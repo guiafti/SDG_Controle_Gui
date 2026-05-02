@@ -63,13 +63,29 @@ export const initDatabase = async () => {
     CREATE TABLE IF NOT EXISTS sales (id TEXT PRIMARY KEY, total REAL NOT NULL, payment_method TEXT NOT NULL, vendedor TEXT NOT NULL, store_id TEXT, items TEXT NOT NULL, discount REAL DEFAULT 0, synced INTEGER DEFAULT 0, created_at DATETIME DEFAULT CURRENT_TIMESTAMP);
     CREATE TABLE IF NOT EXISTS commissions (id TEXT PRIMARY KEY, sale_id TEXT, vendedor TEXT NOT NULL, value REAL NOT NULL, percentage REAL NOT NULL, status TEXT DEFAULT 'pending', created_at DATETIME DEFAULT CURRENT_TIMESTAMP);
     CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT);
+    CREATE TABLE IF NOT EXISTS expense_categories (id TEXT PRIMARY KEY, name TEXT UNIQUE NOT NULL);
+    CREATE TABLE IF NOT EXISTS expenses (
+      id TEXT PRIMARY KEY,
+      description TEXT NOT NULL,
+      category_id TEXT,
+      value REAL NOT NULL,
+      date TEXT DEFAULT CURRENT_TIMESTAMP,
+      payment_method TEXT,
+      store_id TEXT,
+      synced INTEGER DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
     CREATE TABLE IF NOT EXISTS maintenance_orders (
       id TEXT PRIMARY KEY,
       customer_name TEXT,
       customer_phone TEXT,
       device_brand TEXT,
       device_model TEXT,
+      serial_number TEXT,
       issue_description TEXT,
+      technical_notes TEXT,
+      checklist TEXT,
+      priority TEXT DEFAULT 'normal',
       photo_url TEXT,
       price REAL DEFAULT 0,
       entry_store_id TEXT,
@@ -96,7 +112,11 @@ export const initDatabase = async () => {
     { table: 'inventory', col: 'sale_tolerance_days', type: 'INTEGER DEFAULT 30' },
     { table: 'maintenance_orders', col: 'payment_status', type: "TEXT DEFAULT 'pending'" },
     { table: 'maintenance_orders', col: 'return_store_id', type: "TEXT" },
-    { table: 'maintenance_orders', col: 'delivery_date', type: "TEXT" }
+    { table: 'maintenance_orders', col: 'delivery_date', type: "TEXT" },
+    { table: 'maintenance_orders', col: 'serial_number', type: "TEXT" },
+    { table: 'maintenance_orders', col: 'priority', type: "TEXT DEFAULT 'normal'" },
+    { table: 'maintenance_orders', col: 'checklist', type: "TEXT" },
+    { table: 'maintenance_orders', col: 'technical_notes', type: "TEXT" }
   ];
 
   for (const m of migrations) {
@@ -113,6 +133,14 @@ export const initDatabase = async () => {
   const userCount: any = database.prepare('SELECT count(*) as count FROM users').get();
   if (userCount.count === 0) {
     database.prepare('INSERT INTO users (id, name, password, role) VALUES (?, ?, ?, ?)').run(randomUUID(), 'Admin', 'admin', 'admin');
+  }
+
+  const categoryCount: any = database.prepare('SELECT count(*) as count FROM expense_categories').get();
+  if (categoryCount.count === 0) {
+    const categories = ['ESTOQUE', 'ALUGUEL', 'ENERGIA', 'ÁGUA', 'INTERNET', 'SALÁRIOS', 'MARKETING', 'MANUTENÇÃO', 'OUTROS'];
+    for (const cat of categories) {
+      database.prepare('INSERT INTO expense_categories (id, name) VALUES (?, ?)').run(randomUUID(), cat);
+    }
   }
 
   console.log('[BANCO] Inicialização concluída.');

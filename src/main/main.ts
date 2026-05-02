@@ -182,9 +182,29 @@ ipcMain.handle('save-repair', async (_, repair: any) => {
     const id = repair.id || randomUUID();
     await run(`
       INSERT OR REPLACE INTO maintenance_orders 
-      (id, customer_name, customer_phone, device_brand, device_model, issue_description, photo_url, price, entry_store_id, maintenance_store_id, current_store_id, status, payment_status, synced, updated_at) 
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, CURRENT_TIMESTAMP)`, 
-      [id, repair.customer_name, repair.customer_phone, repair.device_brand, repair.device_model, repair.issue_description, repair.photo_url, repair.price || 0, repair.entry_store_id, repair.maintenance_store_id, repair.current_store_id || repair.entry_store_id, repair.status || 'Na Loja (Aguardando Envio)', repair.payment_status || 'pending']);
+      (id, customer_name, customer_phone, device_brand, device_model, serial_number, issue_description, technical_notes, checklist, priority, photo_url, price, entry_store_id, maintenance_store_id, return_store_id, current_store_id, status, payment_status, delivery_date, synced, updated_at) 
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, CURRENT_TIMESTAMP)`, 
+      [
+        id, 
+        repair.customer_name, 
+        repair.customer_phone, 
+        repair.device_brand, 
+        repair.device_model, 
+        repair.serial_number || '', 
+        repair.issue_description, 
+        repair.technical_notes || '', 
+        repair.checklist || '', 
+        repair.priority || 'normal', 
+        repair.photo_url, 
+        repair.price || 0, 
+        repair.entry_store_id, 
+        repair.maintenance_store_id, 
+        repair.return_store_id, 
+        repair.current_store_id || repair.entry_store_id, 
+        repair.status || 'Na Loja (Aguardando Envio)', 
+        repair.payment_status || 'pending',
+        repair.delivery_date || ''
+      ]);
     
     SyncEngine.syncPendingRepairs().catch(() => {});
     return { success: true, id };
@@ -197,6 +217,16 @@ ipcMain.handle('save-repair', async (_, repair: any) => {
 ipcMain.handle('update-repair-status', async (_, { id, status, current_store_id }) => {
   try {
     await run('UPDATE maintenance_orders SET status = ?, current_store_id = ?, synced = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [status, current_store_id, id]);
+    SyncEngine.syncPendingRepairs().catch(() => {});
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('update-repair-notes', async (_, { id, technical_notes }) => {
+  try {
+    await run('UPDATE maintenance_orders SET technical_notes = ?, synced = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [technical_notes, id]);
     SyncEngine.syncPendingRepairs().catch(() => {});
     return { success: true };
   } catch (err: any) {
@@ -243,6 +273,35 @@ ipcMain.handle('get-stale-stock-items', async () => {
 });
 
 ipcMain.handle('get-commissions', async () => await query('SELECT * FROM commissions ORDER BY created_at DESC'));
+
+// --- FINANCEIRO ---
+ipcMain.handle('get-expenses', async () => await query('SELECT e.*, c.name as category_name FROM expenses e LEFT JOIN expense_categories c ON e.category_id = c.id ORDER BY e.date DESC'));
+ipcMain.handle('save-expense', async (_, exp: any) => {
+  const id = exp.id || randomUUID();
+  await run(`INSERT OR REPLACE INTO expenses (id, description, category_id, value, date, payment_method, store_id, synced) VALUES (?, ?, ?, ?, ?, ?, ?, 0)`,
+    [id, exp.description, exp.category_id, exp.value, exp.date || new Date().toISOString(), exp.payment_method, exp.store_id]);
+  return { success: true };
+});
+ipcMain.handle('delete-expense', async (_, id: string) => { await run('DELETE FROM expenses WHERE id = ?', [id]); return { success: true }; });
+ipcMain.handle('get-expense-categories', async () => await query('SELECT * FROM expense_categories ORDER BY name ASC'));
+ipcMain.handle('save-expense-category', async (_, cat: any) => {
+  const id = cat.id || randomUUID();
+  await run('INSERT OR REPLACE INTO expense_categories (id, name) VALUES (?, ?)', [id, cat.name.toUpperCase()]);
+  return { success: true };
+});
+
+ipcMain.handle('get-financial-summary', async () => {
+  const sales = await get('SELECT SUM(total) as total FROM sales');
+  const expenses = await get('SELECT SUM(value) as total FROM expenses');
+  const commissions = await get('SELECT SUM(value) as total FROM commissions');
+  
+  return {
+    totalInflow: sales?.total || 0,
+    totalOutflow: (expenses?.total || 0) + (commissions?.total || 0),
+    netProfit: (sales?.total || 0) - (expenses?.total || 0) - (commissions?.total || 0)
+  };
+});
+
 ipcMain.handle('get-dashboard-stats', async () => ({
   totalRevenue: (await get('SELECT SUM(total) as total FROM sales'))?.total || 0,
   monthlyRevenue: (await get("SELECT SUM(total) as total FROM sales WHERE strftime('%m', created_at) = strftime('%m', 'now')"))?.total || 0
