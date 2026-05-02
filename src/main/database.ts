@@ -58,8 +58,15 @@ export const initDatabase = async () => {
   database.exec(`
     CREATE TABLE IF NOT EXISTS stores (id TEXT PRIMARY KEY, name TEXT UNIQUE NOT NULL, archived INTEGER DEFAULT 0);
     CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY, name TEXT NOT NULL, password TEXT NOT NULL, role TEXT DEFAULT 'vendedor');
-    CREATE TABLE IF NOT EXISTS products (id TEXT PRIMARY KEY, barcode TEXT UNIQUE, name TEXT NOT NULL, price REAL NOT NULL, archived INTEGER DEFAULT 0, synced INTEGER DEFAULT 0, image TEXT, category_id TEXT);
+    CREATE TABLE IF NOT EXISTS products (id TEXT PRIMARY KEY, barcode TEXT UNIQUE, name TEXT NOT NULL, price REAL NOT NULL, cost_price REAL DEFAULT 0, archived INTEGER DEFAULT 0, synced INTEGER DEFAULT 0, image TEXT, category_id TEXT);
     CREATE TABLE IF NOT EXISTS inventory (product_id TEXT, store_id TEXT, quantity INTEGER DEFAULT 0, min_stock INTEGER DEFAULT 2, sale_tolerance_days INTEGER DEFAULT 30, PRIMARY KEY(product_id, store_id));
+    CREATE TABLE IF NOT EXISTS budgets (
+      id TEXT PRIMARY KEY,
+      category_id TEXT,
+      amount REAL NOT NULL,
+      period TEXT NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
     CREATE TABLE IF NOT EXISTS sales (id TEXT PRIMARY KEY, total REAL NOT NULL, payment_method TEXT NOT NULL, vendedor TEXT NOT NULL, store_id TEXT, items TEXT NOT NULL, discount REAL DEFAULT 0, synced INTEGER DEFAULT 0, created_at DATETIME DEFAULT CURRENT_TIMESTAMP);
     CREATE TABLE IF NOT EXISTS commissions (id TEXT PRIMARY KEY, sale_id TEXT, vendedor TEXT NOT NULL, value REAL NOT NULL, percentage REAL NOT NULL, status TEXT DEFAULT 'pending', created_at DATETIME DEFAULT CURRENT_TIMESTAMP);
     CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT);

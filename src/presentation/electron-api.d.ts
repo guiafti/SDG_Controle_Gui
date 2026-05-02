@@ -24,7 +24,9 @@ export interface ElectronAPI {
   deleteExpense: (id: string) => Promise<any>;
   getExpenseCategories: () => Promise<any[]>;
   saveExpenseCategory: (category: any) => Promise<any>;
-  getFinancialSummary: () => Promise<{totalInflow: number, totalOutflow: number, netProfit: number}>;
+  getBudgets: () => Promise<any[]>;
+  saveBudget: (budget: any) => Promise<any>;
+  getFinancialSummary: () => Promise<{totalInflow: number, totalOutflow: number, netProfit: number, estimatedCost: number, trends: any[]}>;
   getDashboardStats: () => Promise<{ totalRevenue: number, monthlyRevenue: number }>;
   getLowStockItems: () => Promise<any[]>;
   getStaleStockItems: () => Promise<any[]>;

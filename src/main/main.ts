@@ -295,15 +295,50 @@ ipcMain.handle('save-expense-category', async (_, cat: any) => {
   return { success: true };
 });
 
+ipcMain.handle('get-budgets', async () => await query('SELECT b.*, c.name as category_name FROM budgets b LEFT JOIN expense_categories c ON b.category_id = c.id'));
+ipcMain.handle('save-budget', async (_, b: any) => {
+  const id = b.id || randomUUID();
+  await run('INSERT OR REPLACE INTO budgets (id, category_id, amount, period) VALUES (?, ?, ?, ?)', [id, b.category_id, b.amount, b.period]);
+  return { success: true };
+});
+
 ipcMain.handle('get-financial-summary', async () => {
   const sales = await get('SELECT SUM(total) as total FROM sales');
   const expenses = await get('SELECT SUM(value) as total FROM expenses');
   const commissions = await get('SELECT SUM(value) as total FROM commissions');
   
+  // Margem de lucro estimada baseada em cost_price se disponível
+  // Para fins de demonstração inicial, calculamos a margem baseada nos itens vendidos
+  const saleRecords = await query('SELECT items FROM sales');
+  let totalCost = 0;
+  for (const s of saleRecords) {
+    try {
+        const items = JSON.parse(s.items);
+        for (const item of items) {
+            // Busca o preço de custo real do produto no banco
+            const p = await get('SELECT cost_price FROM products WHERE id = ?', [item.id]);
+            totalCost += (p?.cost_price || (item.preco * 0.6)) * item.qtd; // Fallback 60% se não tiver cost_price
+        }
+    } catch(e) {}
+  }
+
+  // Dados de tendência (últimos 6 meses)
+  const trends = await query(`
+    SELECT 
+        strftime('%m/%Y', created_at) as month,
+        SUM(total) as inflow
+    FROM sales 
+    GROUP BY month 
+    ORDER BY created_at DESC 
+    LIMIT 6
+  `);
+
   return {
     totalInflow: sales?.total || 0,
     totalOutflow: (expenses?.total || 0) + (commissions?.total || 0),
-    netProfit: (sales?.total || 0) - (expenses?.total || 0) - (commissions?.total || 0)
+    netProfit: (sales?.total || 0) - (expenses?.total || 0) - (commissions?.total || 0),
+    estimatedCost: totalCost,
+    trends: trends.reverse()
   };
 });
 

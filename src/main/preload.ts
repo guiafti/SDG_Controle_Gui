@@ -26,6 +26,8 @@ contextBridge.exposeInMainWorld('api', {
   deleteExpense: (id: string) => ipcRenderer.invoke('delete-expense', id),
   getExpenseCategories: () => ipcRenderer.invoke('get-expense-categories'),
   saveExpenseCategory: (category: any) => ipcRenderer.invoke('save-expense-category', category),
+  getBudgets: () => ipcRenderer.invoke('get-budgets'),
+  saveBudget: (budget: any) => ipcRenderer.invoke('save-budget', budget),
   getFinancialSummary: () => ipcRenderer.invoke('get-financial-summary'),
   getDashboardStats: () => ipcRenderer.invoke('get-dashboard-stats'),
   getLowStockItems: () => ipcRenderer.invoke('get-low-stock-items'),
