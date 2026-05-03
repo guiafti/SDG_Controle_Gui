@@ -22,6 +22,7 @@ const Repairs: React.FC = () => {
   const [filter, setFilter] = useState<'all' | 'local'>('local');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedOrder, setSelectedOrder] = useState<any | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   const [isEditingNotes, setIsEditingNotes] = useState(false);
   const [localNotes, setLocalNotes] = useState('');
 
@@ -228,122 +229,170 @@ const Repairs: React.FC = () => {
         </div>
 
         {/* Quick Stats Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
-            <div className="flex justify-between items-start mb-1">
-              <div className="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center text-slate-500"><i className="ph ph-files text-lg"></i></div>
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total</span>
+        <div className="flex gap-3 overflow-x-auto no-scrollbar pb-2">
+          <div className="flex-none bg-white px-4 py-2 rounded-xl shadow-sm border border-slate-100 flex items-center gap-3">
+            <div className="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center text-slate-500"><i className="ph ph-files text-lg"></i></div>
+            <div>
+              <div className="text-xs font-bold text-slate-800">{stats.total}</div>
+              <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Total</div>
             </div>
-            <div className="text-xl font-bold text-slate-800">{stats.total}</div>
-            <div className="text-[10px] font-medium text-slate-400">Ordens Filtradas</div>
           </div>
-          <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 border-l-4 border-l-purple-500">
-            <div className="flex justify-between items-start mb-1">
-              <div className="w-8 h-8 bg-purple-50 rounded-lg flex items-center justify-center text-purple-500"><i className="ph ph-wrench text-lg"></i></div>
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">No Lab</span>
+          <div className="flex-none bg-white px-4 py-2 rounded-xl shadow-sm border border-slate-100 border-l-4 border-l-purple-500 flex items-center gap-3">
+            <div className="w-8 h-8 bg-purple-50 rounded-lg flex items-center justify-center text-purple-500"><i className="ph ph-wrench text-lg"></i></div>
+            <div>
+              <div className="text-xs font-bold text-slate-800">{stats.inService}</div>
+              <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">No Lab</div>
             </div>
-            <div className="text-xl font-bold text-slate-800">{stats.inService}</div>
-            <div className="text-[10px] font-medium text-slate-400">Em Manutenção</div>
           </div>
-          <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 border-l-4 border-l-yellow-500">
-            <div className="flex justify-between items-start mb-1">
-              <div className="w-8 h-8 bg-yellow-50 rounded-lg flex items-center justify-center text-yellow-600"><i className="ph ph-check-circle text-lg"></i></div>
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Prontas</span>
+          <div className="flex-none bg-white px-4 py-2 rounded-xl shadow-sm border border-slate-100 border-l-4 border-l-yellow-500 flex items-center gap-3">
+            <div className="w-8 h-8 bg-yellow-50 rounded-lg flex items-center justify-center text-yellow-600"><i className="ph ph-check-circle text-lg"></i></div>
+            <div>
+              <div className="text-xs font-bold text-slate-800">{stats.ready}</div>
+              <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Prontas</div>
             </div>
-            <div className="text-xl font-bold text-slate-800">{stats.ready}</div>
-            <div className="text-[10px] font-medium text-slate-400">Aguardando Retirada</div>
           </div>
-          <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 border-l-4 border-l-red-500">
-            <div className="flex justify-between items-start mb-1">
-              <div className="w-8 h-8 bg-red-50 rounded-lg flex items-center justify-center text-red-500"><i className="ph ph-warning-circle text-lg"></i></div>
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Pendentes</span>
+          <div className="flex-none bg-white px-4 py-2 rounded-xl shadow-sm border border-slate-100 border-l-4 border-l-red-500 flex items-center gap-3">
+            <div className="w-8 h-8 bg-red-50 rounded-lg flex items-center justify-center text-red-500"><i className="ph ph-warning-circle text-lg"></i></div>
+            <div>
+              <div className="text-xs font-bold text-slate-800">{stats.pendingPayment}</div>
+              <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Pendentes</div>
             </div>
-            <div className="text-xl font-bold text-slate-800">{stats.pendingPayment}</div>
-            <div className="text-[10px] font-medium text-slate-400">Débito Pós-Entrega</div>
           </div>
         </div>
 
         {/* Filter and Search Bar */}
-        <div className="flex flex-col md:flex-row gap-3 bg-white p-2 rounded-2xl shadow-sm border border-slate-200">
-          <div className="flex bg-slate-100 p-1 rounded-xl shrink-0">
-            <button onClick={() => setFilter('local')} className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${filter === 'local' ? 'bg-white text-brand-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}>Minha Loja</button>
-            <button onClick={() => setFilter('all')} className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${filter === 'all' ? 'bg-white text-brand-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}>Rede Total</button>
+        <div className="flex flex-col md:flex-row gap-3">
+          <div className="flex bg-white p-1 rounded-xl shadow-sm border border-slate-200 shrink-0">
+            <button onClick={() => setFilter('local')} className={`px-4 py-1.5 rounded-lg text-[10px] font-bold transition-all ${filter === 'local' ? 'bg-brand-500 text-white shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}>Minha Loja</button>
+            <button onClick={() => setFilter('all')} className={`px-4 py-1.5 rounded-lg text-[10px] font-bold transition-all ${filter === 'all' ? 'bg-brand-500 text-white shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}>Rede Total</button>
           </div>
 
           <div className="flex-1 relative">
             <i className="ph ph-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-lg"></i>
             <input 
               type="text" placeholder="Buscar por cliente, modelo, serial ou OS..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
-              className="w-full bg-slate-50 border border-slate-100 rounded-xl py-2.5 pl-11 pr-4 outline-none focus:ring-2 ring-brand-500/10 transition-all text-sm font-medium text-slate-700"
+              className="w-full bg-white border border-slate-200 rounded-xl py-2 pl-11 pr-4 outline-none focus:ring-2 ring-brand-500/10 transition-all text-sm font-medium text-slate-700 shadow-sm"
             />
           </div>
         </div>
 
-        {/* Main List Table */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead className="bg-slate-50 border-b border-slate-100">
-                <tr>
-                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">OS / Data</th>
-                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Cliente</th>
-                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Aparelho</th>
-                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Status</th>
-                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Prazo / Valor</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-50">
-                {loading ? (
-                  <tr><td colSpan={5} className="px-6 py-16 text-center text-slate-300 font-bold uppercase text-xs animate-pulse">Sincronizando Ordens...</td></tr>
-                ) : filteredRepairs.length === 0 ? (
-                  <tr>
-                    <td colSpan={5} className="px-6 py-24 text-center">
-                      <div className="flex flex-col items-center opacity-20">
-                        <i className="ph ph-folder-open text-6xl"></i>
-                        <p className="text-sm font-bold uppercase mt-2">Nenhuma ordem encontrada</p>
-                      </div>
-                    </td>
-                  </tr>
-                ) : filteredRepairs.map(r => (
-                  <tr 
-                    key={r.id} onClick={() => openDetails(r)}
-                    className="hover:bg-slate-50/80 cursor-pointer transition-colors group"
+        {/* Main List - Compact Cards */}
+        <div className="space-y-2">
+          {loading ? (
+            <div className="py-20 text-center text-slate-300 font-bold uppercase text-xs animate-pulse">Sincronizando Ordens...</div>
+          ) : filteredRepairs.length === 0 ? (
+            <div className="py-32 text-center bg-white rounded-2xl border border-slate-100">
+              <div className="flex flex-col items-center opacity-20">
+                <i className="ph ph-folder-open text-6xl"></i>
+                <p className="text-sm font-bold uppercase mt-2">Nenhuma ordem encontrada</p>
+              </div>
+            </div>
+          ) : (
+            filteredRepairs.map(r => {
+              const isExpanded = expandedId === r.id;
+              return (
+                <div 
+                  key={r.id} 
+                  className={`bg-white rounded-xl border transition-all duration-300 overflow-hidden ${isExpanded ? 'ring-2 ring-brand-500/10 border-brand-200 shadow-lg' : 'border-slate-100 hover:border-slate-200 shadow-sm'}`}
+                >
+                  {/* Item Header - Collapsed View */}
+                  <div 
+                    onClick={() => setExpandedId(isExpanded ? null : r.id)}
+                    className="p-3 cursor-pointer flex items-center gap-4 hover:bg-slate-50/50 transition-colors"
                   >
-                    <td className="px-6 py-4">
-                      <div className="font-mono text-xs font-bold text-brand-600">#{r.id.substring(0, 8)}</div>
-                      <div className="text-[11px] text-slate-400 font-medium">{new Date(r.created_at).toLocaleDateString()}</div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="text-sm font-bold text-slate-700">{r.customer_name}</div>
-                      <div className="text-[11px] text-slate-400 font-medium">{r.customer_phone ? maskPhone(r.customer_phone) : 'Sem Telefone'}</div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="text-sm font-bold text-slate-800 tracking-tight">{r.device_brand} {r.device_model}</div>
-                      <div className="text-[11px] text-slate-400 font-mono uppercase">{r.serial_number || 'S/N'}</div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex flex-col gap-1 items-start">
-                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-tight border ${getStatusColor(r.status)}`}>
-                          {r.status}
-                        </span>
+                    <div className="w-10 h-10 rounded-lg bg-slate-50 flex-none flex items-center justify-center text-slate-400 overflow-hidden border border-slate-100">
+                      {r.photo_url ? (
+                        <img src={`local-img://${r.photo_url}`} className="w-full h-full object-cover" alt="OS" />
+                      ) : (
+                        <i className="ph ph-wrench text-xl"></i>
+                      )}
+                    </div>
+
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <span className="text-[9px] font-bold text-brand-600 bg-brand-50 px-1.5 py-0.5 rounded uppercase">#{r.id.substring(0, 8)}</span>
+                        <h3 className="text-xs font-bold text-slate-800 truncate uppercase tracking-tight">{r.customer_name}</h3>
+                      </div>
+                      <div className="flex items-center gap-3 text-[10px] text-slate-400 font-medium">
+                        <span className="flex items-center gap-1"><i className="ph ph-device-mobile"></i> {r.device_brand} {r.device_model}</span>
+                        <span className="flex items-center gap-1"><i className="ph ph-calendar"></i> {new Date(r.created_at).toLocaleDateString()}</span>
+                      </div>
+                    </div>
+
+                    <div className="hidden md:flex flex-col items-end shrink-0 gap-1.5 px-4 border-x border-slate-100">
+                      <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-tight border ${getStatusColor(r.status)}`}>
+                        {r.status}
+                      </span>
+                      <div className="flex items-center gap-2">
                         {r.priority !== 'normal' && (
-                          <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase ${getPriorityColor(r.priority)}`}>
+                          <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold uppercase ${getPriorityColor(r.priority)}`}>
                             {r.priority}
                           </span>
                         )}
+                        <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold uppercase ${r.payment_status === 'paid' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
+                          {r.payment_status === 'paid' ? 'PAGO' : 'PENDENTE'}
+                        </span>
                       </div>
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <div className={`text-[11px] font-bold uppercase ${new Date(r.delivery_date) < new Date() && r.status !== 'Entregue' ? 'text-red-500' : 'text-slate-400'}`}>
-                        {r.delivery_date ? new Date(r.delivery_date).toLocaleDateString() : 'Sem Prazo'}
+                    </div>
+
+                    <div className="text-right shrink-0 min-w-[80px]">
+                      <div className="text-xs font-bold text-slate-800">R$ {Number(r.price).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
+                      <div className={`text-[9px] font-bold uppercase ${new Date(r.delivery_date) < new Date() && r.status !== 'Entregue' ? 'text-red-500' : 'text-slate-400'}`}>
+                        {r.delivery_date ? new Date(r.delivery_date).toLocaleDateString() : 'S/ PRAZO'}
                       </div>
-                      <div className="text-base font-bold text-slate-800">R$ {Number(r.price).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                    </div>
+
+                    <button className="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:bg-slate-100 transition-transform duration-300" style={{ transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)' }}>
+                      <i className="ph ph-caret-down text-lg"></i>
+                    </button>
+                  </div>
+
+                  {/* Item Expanded Content */}
+                  {isExpanded && (
+                    <div className="px-3 pb-3 pt-1 border-t border-slate-50 bg-slate-50/30 animate-in slide-in-from-top-2 duration-200">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <div className="bg-white p-3 rounded-xl border border-slate-100 space-y-2">
+                          <h4 className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Defeito Relatado</h4>
+                          <p className="text-[11px] text-slate-600 font-medium italic leading-relaxed line-clamp-2">"{r.issue_description || 'Sem descrição.'}"</p>
+                        </div>
+                        <div className="bg-white p-3 rounded-xl border border-slate-100 space-y-2">
+                          <h4 className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Laudo Técnico</h4>
+                          <p className="text-[11px] text-slate-600 font-medium leading-relaxed line-clamp-2">{r.technical_notes || 'Aguardando avaliação.'}</p>
+                        </div>
+                        <div className="flex flex-col gap-2">
+                          <div className="flex gap-2">
+                            <button 
+                              onClick={() => openWhatsApp(r.customer_phone, r.customer_name, r.device_model)}
+                              className="flex-1 bg-emerald-50 text-emerald-600 p-2 rounded-lg border border-emerald-100 flex items-center justify-center gap-1.5 text-[10px] font-bold uppercase hover:bg-emerald-100 transition-colors"
+                            >
+                              <i className="ph ph-whatsapp-logo text-lg"></i> WhatsApp
+                            </button>
+                            <button 
+                              onClick={() => openDetails(r)}
+                              className="flex-1 bg-brand-50 text-brand-600 p-2 rounded-lg border border-brand-100 flex items-center justify-center gap-1.5 text-[10px] font-bold uppercase hover:bg-brand-100 transition-colors"
+                            >
+                              <i className="ph ph-eye text-lg"></i> Detalhes
+                            </button>
+                          </div>
+                          <div className="flex gap-2">
+                            <button 
+                              onClick={() => { setSelectedOrder(r); handlePrintRepair(); }}
+                              className="flex-1 bg-slate-50 text-slate-600 p-2 rounded-lg border border-slate-200 flex items-center justify-center gap-1.5 text-[10px] font-bold uppercase hover:bg-slate-100 transition-colors"
+                            >
+                              <i className="ph ph-printer text-lg"></i> Imprimir
+                            </button>
+                            <div className="flex-1 flex items-center justify-center px-2 py-1 bg-slate-800 text-white rounded-lg text-[10px] font-bold uppercase cursor-default">
+                              {r.status.split(' ')[0]}...
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })
+          )}
         </div>
       </main>
 

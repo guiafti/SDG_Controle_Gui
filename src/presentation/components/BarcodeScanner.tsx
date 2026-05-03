@@ -1,66 +1,107 @@
-import React, { useRef, useEffect } from 'react';
-import { toast } from 'react-hot-toast';
+import React, { useRef, useEffect, useState } from 'react';
 
 interface BarcodeScannerProps {
   onScan: (code: string) => void;
-  onOpenMaintenance: () => void;
   onOpenSearch: () => void;
 }
 
-const BarcodeScanner: React.FC<BarcodeScannerProps> = ({ onScan, onOpenMaintenance, onOpenSearch }) => {
+const BarcodeScanner: React.FC<BarcodeScannerProps> = ({ onScan, onOpenSearch }) => {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [results, setResults] = useState<any[]>([]);
+  const [allProducts, setAllProducts] = useState<any[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     inputRef.current?.focus();
+    fetchProducts();
   }, []);
+
+  const fetchProducts = async () => {
+    const data = await window.api.getAllProducts();
+    setAllProducts(data || []);
+  };
+
+  useEffect(() => {
+    if (searchTerm.length >= 2) {
+      const filtered = allProducts.filter(p => 
+        p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+        p.barcode.includes(searchTerm)
+      ).slice(0, 5);
+      setResults(filtered);
+    } else {
+      setResults([]);
+    }
+  }, [searchTerm, allProducts]);
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
-      onScan(inputRef.current?.value || '');
-      if (inputRef.current) inputRef.current.value = '';
+      if (results.length === 1) {
+        onScan(results[0].barcode);
+        setSearchTerm('');
+      } else {
+        onScan(searchTerm);
+        setSearchTerm('');
+      }
     }
   };
 
+  const handleSelect = (barcode: string) => {
+    onScan(barcode);
+    setSearchTerm('');
+    setResults([]);
+    inputRef.current?.focus();
+  };
+
   return (
-    <div className="flex flex-col gap-4">
-      <div className="bg-white p-6 rounded-2xl shadow-sm border-2 border-brand-500 flex items-center gap-4 relative overflow-hidden">
-        <div className="absolute left-0 top-0 bottom-0 w-2 bg-brand-500"></div>
-        <i className="ph ph-barcode text-5xl text-brand-500 ml-4"></i>
+    <div className="relative group">
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 flex items-center gap-3 px-4 py-2 transition-all focus-within:ring-2 ring-brand-500/10 focus-within:border-brand-400">
+        <i className="ph ph-magnifying-glass text-xl text-slate-400"></i>
         <input 
           ref={inputRef}
-          type="number" 
-          placeholder="Passe o leitor de código de barras aqui..." 
-          className="flex-1 text-3xl font-black text-slate-800 outline-none bg-transparent placeholder:text-slate-300 placeholder:font-medium"
+          type="text" 
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          placeholder="Escaneie ou busque por nome do produto..." 
+          className="flex-1 text-sm font-bold text-slate-700 outline-none bg-transparent placeholder:text-slate-300 placeholder:font-medium"
           onKeyPress={handleKeyPress}
           autoComplete="off"
         />
-        <button 
-          onClick={() => {
-            onScan(inputRef.current?.value || '');
-            if (inputRef.current) inputRef.current.value = '';
-          }}
-          className="bg-slate-800 text-white px-8 py-4 rounded-xl font-bold text-lg hover:bg-slate-700 active:scale-95 transition-transform"
-        >
-          INSERIR
-        </button>
+        {searchTerm && (
+          <button onClick={() => setSearchTerm('')} className="text-slate-300 hover:text-slate-500">
+            <i className="ph ph-x-circle text-lg"></i>
+          </button>
+        )}
       </div>
 
-      <div className="flex gap-4">
-        <button 
-          onClick={onOpenMaintenance}
-          className="flex-1 bg-white border border-slate-200 hover:border-orange-300 hover:bg-orange-50 text-slate-700 hover:text-orange-600 px-4 py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-all shadow-sm"
-        >
-          <i className="ph ph-wrench text-xl"></i>
-          Lançar Serviço / Manutenção
-        </button>
-        <button 
-          onClick={onOpenSearch}
-          className="flex-1 bg-white border border-slate-200 hover:border-brand-300 hover:bg-brand-50 text-slate-700 hover:text-brand-600 px-4 py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-all shadow-sm"
-        >
-          <i className="ph ph-magnifying-glass text-xl"></i>
-          Pesquisar Produto Manualmente
-        </button>
-      </div>
+      {/* Instant Search Results Dropdown */}
+      {results.length > 0 && (
+        <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-xl shadow-xl border border-slate-100 z-[100] overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+          <div className="p-2 space-y-1">
+            {results.map(p => (
+              <button
+                key={p.id}
+                onClick={() => handleSelect(p.barcode)}
+                className="w-full flex items-center gap-3 p-2 hover:bg-slate-50 rounded-lg transition-colors text-left group"
+              >
+                <div className="w-8 h-8 rounded-md bg-slate-100 flex items-center justify-center text-slate-400 group-hover:bg-brand-50 group-hover:text-brand-500 shrink-0">
+                  {p.image ? (
+                    <img src={`local-img://${p.image}`} className="w-full h-full object-cover rounded-md" alt="" />
+                  ) : (
+                    <i className="ph ph-package text-lg"></i>
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-[11px] font-bold text-slate-700 uppercase truncate">{p.name}</div>
+                  <div className="text-[9px] font-bold text-slate-400 font-mono">#{p.barcode}</div>
+                </div>
+                <div className="text-xs font-bold text-emerald-600">
+                  R$ {Number(p.price).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

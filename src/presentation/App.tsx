@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 import LoginModal from './components/LoginModal';
 import MaintenanceModal from './components/MaintenanceModal';
+import PrintPreviewModal from './components/PrintPreviewModal';
 import PDVHeader from './components/PDVHeader';
 import BarcodeScanner from './components/BarcodeScanner';
 import CartList from './components/CartList';
@@ -30,7 +31,6 @@ const App: React.FC = () => {
   const [adminSubView, setAdminSubView] = useState('dashboard');
   const [userRole, setUserRole] = useState('');
   const [isLoginOpen, setIsLoginOpen] = useState(true);
-  const [isMaintenanceOpen, setIsMaintenanceOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [pdvConfigurado, setPdvConfigurado] = useState(false);
   const [loja, setLoja] = useState('');
@@ -39,8 +39,10 @@ const App: React.FC = () => {
   const [carrinho, setCarrinho] = useState<CartItem[]>([]);
   const [stores, setStores] = useState<any[]>([]);
   const [desconto, setDesconto] = useState(0);
-  const [contadorManutencao, setContadorManutencao] = useState(1);
   const [logoApp, setLogoApp] = useState('');
+
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [previewData, setPreviewData] = useState<any>(null);
 
   const loadSettings = async () => {
     try {
@@ -180,49 +182,35 @@ const App: React.FC = () => {
     const totalFinal = Math.max(0, subtotal - desconto);
     const saleData = { total: totalFinal, discount: desconto, payment_method: paymentMethod, vendedor, store_id: lojaId, items: carrinho };
     
+    const loadingId = toast.loading('Finalizando venda...');
     try {
       const result = await window.api.saveSale(saleData);
       if (result.success) {
-        toast((t) => (
-          <div className="flex flex-col gap-4 p-2 text-center">
-            <div className="w-16 h-16 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-2">
-              <i className="ph ph-check-circle text-5xl"></i>
-            </div>
-            <h3 className="font-black text-slate-800 text-xl uppercase">Venda Concluída!</h3>
-            <p className="text-sm text-slate-500 font-bold uppercase tracking-widest">Total: {totalFinal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
-            
-            <div className="flex flex-col gap-2 mt-2">
-              <button 
-                onClick={async () => {
-                  toast.dismiss(t.id);
-                  await window.api.printReceipt({ sale: { ...saleData, id: result.saleId }, storeName: loja, logo: logoApp });
-                  setCarrinho([]); setDesconto(0);
-                }}
-                className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black flex items-center justify-center gap-3 hover:bg-black transition-all uppercase text-xs tracking-widest"
-              >
-                <i className="ph ph-printer text-2xl"></i> Imprimir Comprovante
-              </button>
-              <button 
-                onClick={() => {
-                  toast.dismiss(t.id);
-                  setCarrinho([]); setDesconto(0);
-                }}
-                className="w-full py-4 bg-slate-100 text-slate-500 rounded-2xl font-black hover:bg-slate-200 transition-all uppercase text-xs tracking-widest"
-              >
-                Novo Pedido (Sem Imprimir)
-              </button>
-            </div>
-          </div>
-        ), { duration: Infinity, position: 'top-center', style: { padding: '30px', borderRadius: '32px', border: '1px solid #e2e8f0', minWidth: '350px' } });
+        toast.success('VENDA CONCLUÍDA!', { id: loadingId });
+        
+        // Dados para o preview do comprovante
+        setPreviewData({
+          sale: { ...saleData, id: result.saleId, created_at: new Date().toISOString() },
+          storeName: loja,
+          logo: logoApp
+        });
+        setIsPreviewOpen(true);
+        
+        // Limpar carrinho após abrir o preview
+        setCarrinho([]);
+        setDesconto(0);
       }
-    } catch (error) { toast.error('Erro ao salvar venda!'); }
+    } catch (error) { 
+      toast.error('Erro ao salvar venda!', { id: loadingId }); 
+    }
   };
 
-  const handleMaintenanceSubmit = (aparelho: string, servico: string, valor: number) => {
-    const id = 'OS-' + contadorManutencao.toString().padStart(4, '0');
-    setCarrinho(prev => [...prev, { id, nome: `Serviço: ${aparelho} (${servico})`, qtd: 1, preco: valor, imagem: 'https://placehold.co/150x150/ffedd5/ea580c?text=Serviço' }]);
-    setContadorManutencao(prev => prev + 1); 
-    setIsMaintenanceOpen(false);
+  const confirmPrint = async () => {
+    if (previewData) {
+      await window.api.printReceipt(previewData);
+    }
+    setIsPreviewOpen(false);
+    setPreviewData(null);
   };
 
   const totalVenda = carrinho.reduce((acc, item) => acc + (item.preco * item.qtd), 0);
@@ -246,18 +234,26 @@ const App: React.FC = () => {
       <TitleBar logo={logoApp} />
       <div className="flex-1 relative overflow-hidden bg-white">
         <LoginModal isOpen={isLoginOpen} onLogin={handleLogin} onGoToAdmin={() => setIsLoginOpen(false)} />
-        <MaintenanceModal isOpen={isMaintenanceOpen} onClose={() => setIsMaintenanceOpen(false)} onSubmit={handleMaintenanceSubmit} />
         <ProductSearchModal isOpen={isSearchOpen} onClose={() => setIsSearchOpen(false)} onSelectProduct={(code) => { processarCodigo(code); setIsSearchOpen(false); }} storeId={lojaId} />
         {view === 'pdv' && (
           <div id="tela-pdv" className="absolute inset-0 bg-slate-100 z-50 flex flex-col">
             <PDVHeader loja={loja} vendedor={vendedor} onGoToAdmin={() => setView('admin')} onLogout={handleLogout} logo={logoApp} />
-            <div className="flex-1 overflow-hidden flex gap-6 p-6">
-              <div className="flex-1 flex flex-col gap-4">
-                <BarcodeScanner onScan={processarCodigo} onOpenMaintenance={() => setIsMaintenanceOpen(true)} onOpenSearch={() => setIsSearchOpen(true)} />
+            <div className="flex-1 overflow-hidden flex flex-col lg:flex-row gap-4 p-4">
+              <div className="flex-1 flex flex-col gap-3 min-w-0">
+                <BarcodeScanner onScan={processarCodigo} onOpenSearch={() => setIsSearchOpen(true)} />
                 <CartList items={carrinho} onUpdateQuantity={updateItemQuantity} logo={logoApp} />
               </div>
               <FinancialPanel totalItems={totalVenda} discount={desconto} onDiscountChange={setDesconto} onFinish={handleFinishSale} />
             </div>
+
+            {isPreviewOpen && (
+              <PrintPreviewModal 
+                isOpen={isPreviewOpen} 
+                onClose={() => setIsPreviewOpen(false)} 
+                onConfirm={confirmPrint} 
+                data={previewData} 
+              />
+            )}
           </div>
         )}
         {view === 'admin' && (

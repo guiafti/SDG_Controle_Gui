@@ -53,21 +53,40 @@ const Stores: React.FC = () => {
 
   const handleArchive = async (store: any) => {
     const action = store.archived ? 'restaurar' : 'arquivar';
-    if (!confirm(`Deseja realmente ${action} a loja "${store.name}"?`)) return;
-
-    try {
-      const result = await window.api.archiveStore({
-        id: store.id,
-        archived: !store.archived
-      });
-
-      if (result.success) {
-        toast.success(`Loja ${store.archived ? 'restaurada' : 'arquivada'}!`);
-        fetchStores();
-      }
-    } catch (e) {
-      toast.error('ERRO AO PROCESSAR');
-    }
+    
+    toast((t) => (
+      <div className="flex flex-col gap-3 p-1">
+        <p className="text-sm font-bold text-slate-800 uppercase">Deseja realmente {action} a loja "{store.name}"?</p>
+        <div className="flex gap-2">
+          <button 
+            onClick={async () => {
+              toast.dismiss(t.id);
+              try {
+                const result = await window.api.archiveStore({
+                  id: store.id,
+                  archived: !store.archived
+                });
+                if (result.success) {
+                  toast.success(`Loja ${store.archived ? 'restaurada' : 'arquivada'}!`);
+                  fetchStores();
+                }
+              } catch (e) {
+                toast.error('ERRO AO PROCESSAR');
+              }
+            }}
+            className="flex-1 bg-brand-500 text-white py-2 rounded-lg font-bold text-xs uppercase"
+          >
+            Confirmar
+          </button>
+          <button 
+            onClick={() => toast.dismiss(t.id)}
+            className="flex-1 bg-slate-100 text-slate-500 py-2 rounded-lg font-bold text-xs uppercase"
+          >
+            Cancelar
+          </button>
+        </div>
+      </div>
+    ), { duration: 5000, position: 'top-center' });
   };
 
   return (

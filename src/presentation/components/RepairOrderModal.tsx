@@ -163,113 +163,113 @@ const RepairOrderModal: React.FC<RepairOrderModalProps> = ({ isOpen, onClose, on
 
   return (
     <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
-      <div className="bg-white rounded-3xl shadow-2xl max-w-4xl w-full max-h-[95vh] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200">
-        <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-brand-500 text-white rounded-xl flex items-center justify-center shadow-lg shadow-brand-500/20">
-              <i className="ph ph-wrench text-2xl"></i>
+      <div className="bg-white rounded-3xl shadow-2xl max-w-4xl w-full max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200">
+        <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-brand-500 text-white rounded-xl flex items-center justify-center shadow-lg shadow-brand-500/20">
+              <i className="ph ph-wrench text-xl"></i>
             </div>
             <div>
-              <h2 className="text-xl font-bold text-slate-800 tracking-tight">Nova Ordem de Manutenção</h2>
-              <p className="text-[11px] text-slate-500 font-bold uppercase tracking-wider">Controle de Assistência</p>
+              <h2 className="text-lg font-bold text-slate-800 tracking-tight">Nova Ordem de Manutenção</h2>
+              <p className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">Assistência Técnica</p>
             </div>
           </div>
-          <button onClick={onClose} className="w-10 h-10 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-400 transition-colors">
-            <i className="ph ph-x text-2xl"></i>
+          <button onClick={onClose} className="w-8 h-8 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-400 transition-colors">
+            <i className="ph ph-x text-xl"></i>
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 overflow-y-auto custom-scrollbar">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Coluna 1: Cliente e Dispositivo */}
-            <div className="lg:col-span-2 space-y-6">
-              <section className="space-y-3">
-                <div className="flex items-center gap-2 mb-1">
-                  <div className="w-1.5 h-4 bg-brand-500 rounded-full"></div>
-                  <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Informações do Cliente</h3>
+        <form onSubmit={handleSubmit} className="p-4 overflow-y-auto custom-scrollbar">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            {/* Esquerda: Cliente e Equipamento */}
+            <div className="lg:col-span-8 space-y-4">
+              <section className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-1 h-3 bg-brand-500 rounded-full"></div>
+                  <h3 className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Informações do Cliente</h3>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <label className="block text-[10px] font-bold text-slate-500 uppercase ml-1">Nome Completo *</label>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  <div className="space-y-0.5">
+                    <label className="block text-[9px] font-bold text-slate-500 uppercase ml-1">Nome Completo *</label>
                     <input 
                       type="text" required value={customerName} onChange={e => setCustomerName(e.target.value)}
                       placeholder="Nome do Cliente"
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none focus:border-brand-500 transition-all font-semibold text-sm text-slate-700"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 outline-none focus:border-brand-500 transition-all font-semibold text-xs text-slate-700"
                     />
                   </div>
-                  <div className="space-y-1">
-                    <label className="block text-[10px] font-bold text-slate-500 uppercase ml-1">Telefone / WhatsApp</label>
+                  <div className="space-y-0.5">
+                    <label className="block text-[9px] font-bold text-slate-500 uppercase ml-1">Telefone / WhatsApp</label>
                     <input 
                       type="text" value={customerPhone} 
                       onChange={e => setCustomerPhone(maskPhone(e.target.value))}
                       placeholder="(00) 00000-0000"
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none focus:border-brand-500 transition-all font-semibold text-sm text-slate-700"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 outline-none focus:border-brand-500 transition-all font-semibold text-xs text-slate-700"
                     />
                   </div>
                 </div>
               </section>
 
-              <section className="space-y-3">
-                <div className="flex items-center gap-2 mb-1">
-                  <div className="w-1.5 h-4 bg-brand-500 rounded-full"></div>
-                  <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Equipamento</h3>
+              <section className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-1 h-3 bg-brand-500 rounded-full"></div>
+                  <h3 className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Equipamento</h3>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <div className="space-y-1">
-                    <label className="block text-[10px] font-bold text-slate-500 uppercase ml-1">Marca *</label>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                  <div className="space-y-0.5">
+                    <label className="block text-[9px] font-bold text-slate-500 uppercase ml-1">Marca *</label>
                     <input 
                       type="text" required value={brand} onChange={e => setBrand(e.target.value)}
                       placeholder="Ex: Samsung"
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none focus:border-brand-500 transition-all font-semibold text-sm text-slate-700"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 outline-none focus:border-brand-500 transition-all font-semibold text-xs text-slate-700"
                     />
                   </div>
-                  <div className="space-y-1">
-                    <label className="block text-[10px] font-bold text-slate-500 uppercase ml-1">Modelo *</label>
+                  <div className="space-y-0.5">
+                    <label className="block text-[9px] font-bold text-slate-500 uppercase ml-1">Modelo *</label>
                     <input 
                       type="text" required value={model} onChange={e => setModel(e.target.value)}
                       placeholder="Ex: Galaxy S23"
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none focus:border-brand-500 transition-all font-semibold text-sm text-slate-700"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 outline-none focus:border-brand-500 transition-all font-semibold text-xs text-slate-700"
                     />
                   </div>
-                  <div className="space-y-1">
-                    <label className="block text-[10px] font-bold text-slate-500 uppercase ml-1">Nº de Série</label>
+                  <div className="space-y-0.5">
+                    <label className="block text-[9px] font-bold text-slate-500 uppercase ml-1">Nº de Série</label>
                     <input 
                       type="text" value={serialNumber} onChange={e => setSerialNumber(e.target.value)}
                       placeholder="Opcional"
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none focus:border-brand-500 transition-all font-semibold text-sm text-slate-700"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 outline-none focus:border-brand-500 transition-all font-semibold text-xs text-slate-700"
                     />
                   </div>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <label className="block text-[10px] font-bold text-slate-500 uppercase ml-1">Defeito Relatado</label>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  <div className="space-y-0.5">
+                    <label className="block text-[9px] font-bold text-slate-500 uppercase ml-1">Defeito Relatado</label>
                     <textarea 
                       rows={2} value={issue} onChange={e => setIssue(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none focus:border-brand-500 transition-all resize-none font-medium text-sm text-slate-700"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 outline-none focus:border-brand-500 transition-all resize-none font-medium text-xs text-slate-700"
                       placeholder="Descrição do problema..."
                     />
                   </div>
-                  <div className="space-y-1">
-                    <label className="block text-[10px] font-bold text-slate-500 uppercase ml-1">Observações Entrada</label>
+                  <div className="space-y-0.5">
+                    <label className="block text-[9px] font-bold text-slate-500 uppercase ml-1">Observações Entrada</label>
                     <textarea 
                       rows={2} value={technicalNotes} onChange={e => setTechnicalNotes(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none focus:border-brand-500 transition-all resize-none font-medium text-sm text-slate-700"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 outline-none focus:border-brand-500 transition-all resize-none font-medium text-xs text-slate-700"
                       placeholder="Estado físico, riscos..."
                     />
                   </div>
                 </div>
               </section>
 
-              <section className="space-y-3">
-                <div className="flex items-center gap-2 mb-1">
-                  <div className="w-1.5 h-4 bg-brand-500 rounded-full"></div>
-                  <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Checklist</h3>
+              <section className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-1 h-3 bg-brand-500 rounded-full"></div>
+                  <h3 className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Checklist</h3>
                 </div>
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-1.5">
                   {CHECKLIST_OPTIONS.map(item => (
                     <button
                       key={item} type="button" onClick={() => toggleChecklist(item)}
-                      className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-tight border transition-all ${checklist.includes(item) ? 'bg-brand-500 border-brand-500 text-white shadow-md' : 'bg-white border-slate-200 text-slate-400 hover:border-slate-300'}`}
+                      className={`px-2 py-1 rounded-md text-[9px] font-bold uppercase tracking-tight border transition-all ${checklist.includes(item) ? 'bg-brand-500 border-brand-500 text-white shadow-sm' : 'bg-white border-slate-200 text-slate-400 hover:border-slate-300'}`}
                     >
                       {item}
                     </button>
@@ -278,99 +278,97 @@ const RepairOrderModal: React.FC<RepairOrderModalProps> = ({ isOpen, onClose, on
               </section>
             </div>
 
-            {/* Coluna 2: Status, Valores e Foto */}
-            <div className="space-y-6">
-              <section className="space-y-3">
-                <div className="flex items-center gap-2 mb-1">
-                  <div className="w-1.5 h-4 bg-brand-500 rounded-full"></div>
-                  <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Logística</h3>
+            {/* Direita: Logística e Valor */}
+            <div className="lg:col-span-4 space-y-4">
+              <section className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-1 h-3 bg-brand-500 rounded-full"></div>
+                  <h3 className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Logística</h3>
                 </div>
-                <div className="space-y-3">
-                  <div className="flex gap-1.5 p-1 bg-slate-100 rounded-xl border border-slate-200">
+                <div className="space-y-2">
+                  <div className="flex gap-1 p-0.5 bg-slate-100 rounded-lg border border-slate-200">
                     {PRIORITY_OPTIONS.map(opt => (
                       <button
                         key={opt.value} type="button" onClick={() => setPriority(opt.value)}
-                        className={`flex-1 py-2 rounded-lg text-[9px] font-bold uppercase transition-all ${priority === opt.value ? 'bg-white shadow-sm text-brand-600' : 'text-slate-400 hover:text-slate-500'}`}
+                        className={`flex-1 py-1.5 rounded-md text-[8px] font-bold uppercase transition-all ${priority === opt.value ? 'bg-white shadow-sm text-brand-600' : 'text-slate-400 hover:text-slate-500'}`}
                       >
                         {opt.label}
                       </button>
                     ))}
                   </div>
-                  <div className="space-y-1">
-                    <label className="block text-[10px] font-bold text-slate-500 uppercase ml-1">Técnico (Loja)</label>
-                    <select 
-                      required value={destStoreId} onChange={e => setDestStoreId(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none focus:border-brand-500 font-semibold text-sm text-slate-700 appearance-none"
-                    >
-                      {stores.map(s => (
-                        <option key={s.id} value={s.id}>{s.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="space-y-1">
-                    <label className="block text-[10px] font-bold text-slate-500 uppercase ml-1">Retirada (Loja)</label>
-                    <select 
-                      required value={returnStoreId} onChange={e => setReturnStoreId(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none focus:border-brand-500 font-semibold text-sm text-slate-700 appearance-none"
-                    >
-                      {stores.map(s => (
-                        <option key={s.id} value={s.id}>{s.name}</option>
-                      ))}
-                    </select>
+                  <div className="grid grid-cols-1 gap-2">
+                    <div className="space-y-0.5">
+                      <label className="block text-[9px] font-bold text-slate-500 uppercase ml-1">Técnico (Loja)</label>
+                      <select 
+                        required value={destStoreId} onChange={e => setDestStoreId(e.target.value)}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 outline-none focus:border-brand-500 font-semibold text-xs text-slate-700 appearance-none"
+                      >
+                        {stores.map(s => (
+                          <option key={s.id} value={s.id}>{s.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="space-y-0.5">
+                      <label className="block text-[9px] font-bold text-slate-500 uppercase ml-1">Retirada (Loja)</label>
+                      <select 
+                        required value={returnStoreId} onChange={e => setReturnStoreId(e.target.value)}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 outline-none focus:border-brand-500 font-semibold text-xs text-slate-700 appearance-none"
+                      >
+                        {stores.map(s => (
+                          <option key={s.id} value={s.id}>{s.name}</option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
                 </div>
               </section>
 
-              <section className="space-y-3">
-                <div className="flex items-center gap-2 mb-1">
-                  <div className="w-1.5 h-4 bg-brand-500 rounded-full"></div>
-                  <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Prazos e Valores</h3>
+              <section className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-1 h-3 bg-brand-500 rounded-full"></div>
+                  <h3 className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Prazos e Valores</h3>
                 </div>
-                <div className="grid grid-cols-1 gap-3">
-                  <div className="space-y-1">
-                    <label className="block text-[10px] font-bold text-slate-500 uppercase ml-1">Previsão Entrega</label>
+                <div className="grid grid-cols-2 lg:grid-cols-1 gap-2">
+                  <div className="space-y-0.5">
+                    <label className="block text-[9px] font-bold text-slate-500 uppercase ml-1">Previsão Entrega</label>
                     <input 
                       type="date" value={deliveryDate} onChange={e => setDeliveryDate(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none focus:border-brand-500 font-semibold text-sm text-slate-700"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 outline-none focus:border-brand-500 font-semibold text-xs text-slate-700"
                     />
                   </div>
-                  <div className="space-y-1">
-                    <label className="block text-[10px] font-bold text-slate-500 uppercase ml-1">Orçamento (R$)</label>
+                  <div className="space-y-0.5">
+                    <label className="block text-[9px] font-bold text-slate-500 uppercase ml-1">Orçamento (R$)</label>
                     <input 
                       type="number" step="0.01" value={price} onChange={e => setPrice(e.target.value)}
-                      className="w-full bg-brand-50 border border-brand-200 rounded-xl p-3 outline-none focus:border-brand-500 font-bold text-xl text-brand-600"
+                      className="w-full bg-brand-50 border border-brand-200 rounded-lg p-2 outline-none focus:border-brand-500 font-bold text-lg text-brand-600"
                       placeholder="0,00"
                     />
                   </div>
                 </div>
               </section>
 
-              <section className="space-y-3">
-                <div className="flex items-center gap-2 mb-1">
-                  <div className="w-1.5 h-4 bg-brand-500 rounded-full"></div>
-                  <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Foto</h3>
+              <section className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-1 h-3 bg-brand-500 rounded-full"></div>
+                  <h3 className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Foto do Aparelho</h3>
                 </div>
                 <div className="relative group">
                   {photo ? (
-                    <div className="relative h-32 rounded-2xl overflow-hidden border border-slate-200">
+                    <div className="relative h-24 rounded-xl overflow-hidden border border-slate-200">
                       <img src={photo} className="w-full h-full object-cover" alt="Preview" />
                       <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                         <button 
                           type="button" onClick={() => setPhoto(null)}
-                          className="w-8 h-8 bg-red-500 text-white rounded-full flex items-center justify-center shadow-md hover:scale-110 transition-transform"
+                          className="w-7 h-7 bg-red-500 text-white rounded-full flex items-center justify-center shadow-md hover:scale-110 transition-transform"
                         >
-                          <i className="ph ph-trash text-lg"></i>
+                          <i className="ph ph-trash text-base"></i>
                         </button>
-                        <label className="w-8 h-8 bg-white text-slate-800 rounded-full flex items-center justify-center shadow-md hover:scale-110 transition-transform cursor-pointer">
-                          <i className="ph ph-camera text-lg"></i>
-                          <input type="file" accept="image/*" className="hidden" onChange={handlePhotoChange} />
-                        </label>
                       </div>
                     </div>
                   ) : (
-                    <label className="flex flex-col items-center justify-center h-32 rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50 hover:bg-slate-100 cursor-pointer transition-all">
-                      <i className="ph ph-camera text-2xl text-slate-400 mb-1"></i>
-                      <span className="text-[9px] font-bold text-slate-400 uppercase">Anexar Foto</span>
+                    <label className="flex flex-col items-center justify-center h-24 rounded-xl border-2 border-dashed border-slate-200 bg-slate-50 hover:bg-slate-100 cursor-pointer transition-all">
+                      <i className="ph ph-camera text-xl text-slate-400"></i>
+                      <span className="text-[8px] font-bold text-slate-400 uppercase mt-1">Anexar Foto</span>
                       <input type="file" accept="image/*" className="hidden" onChange={handlePhotoChange} />
                     </label>
                   )}
@@ -380,25 +378,25 @@ const RepairOrderModal: React.FC<RepairOrderModalProps> = ({ isOpen, onClose, on
           </div>
         </form>
 
-        <div className="p-6 bg-slate-50 border-t border-slate-100 flex gap-3">
+        <div className="p-4 bg-slate-50 border-t border-slate-100 flex gap-2">
           <button 
             type="button" onClick={onClose}
-            className="flex-1 py-3 rounded-xl border border-slate-200 text-slate-500 font-bold hover:bg-white transition-all uppercase text-[10px] tracking-wider"
+            className="px-6 py-2 rounded-lg border border-slate-200 text-slate-500 font-bold hover:bg-white transition-all uppercase text-[9px] tracking-wider"
           >
             Cancelar
           </button>
           <button 
             onClick={handleSubmit} disabled={loading}
-            className="flex-[2] py-3 rounded-xl bg-brand-500 text-white font-bold hover:bg-brand-600 shadow-lg shadow-brand-500/20 transition-all uppercase text-[10px] tracking-wider disabled:opacity-50 flex items-center justify-center gap-2"
+            className="flex-1 py-2 rounded-lg bg-brand-500 text-white font-bold hover:bg-brand-600 shadow-lg shadow-brand-500/20 transition-all uppercase text-[9px] tracking-wider disabled:opacity-50 flex items-center justify-center gap-2"
           >
             {loading ? (
               <>
-                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                Salvando...
+                <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                Processando...
               </>
             ) : (
               <>
-                <i className="ph ph-check-circle text-xl"></i>
+                <i className="ph ph-check-circle text-lg"></i>
                 Gerar Ordem de Serviço
               </>
             )}

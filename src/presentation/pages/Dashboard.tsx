@@ -46,10 +46,10 @@ const Dashboard: React.FC = () => {
       const xmlData = event.target.result;
       try {
         const result = await window.api.importXmlProducts(xmlData, selectedStore);
-        alert(`SUCESSO!\nNovos: ${result.newProducts}\nEstoques: ${result.stockUpdates}`);
+        toast.success(`SUCESSO!\nNovos: ${result.newProducts}\nEstoques: ${result.stockUpdates}`);
         fetchData();
       } catch (error) {
-        alert('ERRO: Verifique o formato do XML.');
+        toast.error('ERRO: Verifique o formato do XML.');
       }
     };
     reader.readAsText(file);
@@ -71,160 +71,175 @@ const Dashboard: React.FC = () => {
         URL.revokeObjectURL(url);
       }, 100);
     } catch (e) {
-      alert('Falha ao gerar arquivo modelo.');
+      toast.error('Falha ao gerar arquivo modelo.');
     }
   };
 
   const activeItems = alertFilter === 'low' ? lowStockItems : staleStockItems;
 
   return (
-    <section id="view-dashboard" className="view-section active p-8 max-w-7xl mx-auto w-full font-sans">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+    <section id="view-dashboard" className="view-section active p-4 md:p-6 max-w-7xl mx-auto w-full font-sans space-y-4 animate-in fade-in duration-500">
+      
+      {/* Upper Grid: XML Import and Stats */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
         
-        {/* Card Protocolo XML */}
-        <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-8 flex flex-col justify-between">
-          <div>
-            <p className="text-xs font-black text-brand-600 uppercase tracking-widest mb-4">Protocolo Guardião</p>
-            <label className="block text-[10px] font-bold text-slate-400 mb-2 uppercase">Loja para Carga</label>
-            <select 
-              value={selectedStore} 
-              onChange={(e) => setSelectedStore(e.target.value)}
-              className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl text-sm outline-none focus:border-brand-500 mb-6 font-bold"
-            >
-              <option value="1">Loja A (Centro)</option>
-              <option value="2">Loja B (Avenida)</option>
-              <option value="3">Loja C (Shopping)</option>
-            </select>
+        {/* Protocolo Guardião (XML Import) - Compact Card */}
+        <div className="lg:col-span-4 bg-white rounded-2xl shadow-sm border border-slate-100 p-5 flex flex-col justify-between group">
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 bg-brand-50 rounded-lg flex items-center justify-center text-brand-500">
+                <i className="ph ph-shield-check text-xl"></i>
+              </div>
+              <div>
+                <h3 className="text-xs font-bold text-slate-800 uppercase tracking-tight">Protocolo Guardião</h3>
+                <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Carga de Estoque Massiva</p>
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <label className="block text-[9px] font-bold text-slate-400 uppercase ml-1">Unidade de Destino</label>
+              <select 
+                value={selectedStore} 
+                onChange={(e) => setSelectedStore(e.target.value)}
+                className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold outline-none focus:border-brand-500 transition-all appearance-none"
+              >
+                <option value="1">Loja A (Centro)</option>
+                <option value="2">Loja B (Avenida)</option>
+                <option value="3">Loja C (Shopping)</option>
+              </select>
+            </div>
           </div>
           
           <input type="file" ref={fileInputRef} onChange={onFileChange} accept=".xml" className="hidden" />
 
-          <div className="space-y-3">
+          <div className="mt-6 space-y-2">
             <button 
               onClick={handleImportClick}
-              className="w-full bg-slate-900 text-white py-5 rounded-2xl font-black text-xs hover:bg-black flex items-center justify-center gap-3 shadow-xl active:scale-95 transition-all"
+              className="w-full bg-slate-900 text-white py-3 rounded-xl font-bold text-xs hover:bg-black flex items-center justify-center gap-2 shadow-md active:scale-[0.98] transition-all"
             >
-              <i className="ph ph-file-arrow-up text-2xl"></i>
+              <i className="ph ph-file-arrow-up text-lg"></i>
               IMPORTAR XML
             </button>
             <button 
               onClick={handleDownloadTemplate}
-              className="w-full text-slate-400 py-2 font-bold text-[10px] hover:text-brand-600 transition-colors flex items-center justify-center gap-2"
+              className="w-full text-slate-400 py-1 font-bold text-[9px] hover:text-brand-600 transition-colors flex items-center justify-center gap-1.5"
             >
               <i className="ph ph-download-simple"></i>
-              BAIXAR MODELO DO PROTOCOLO
+              BAIXAR MODELO
             </button>
           </div>
         </div>
 
-        {/* Status Cloud */}
-        <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-8">
-          <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Sincronização</p>
-          <h3 className="text-5xl font-black text-slate-800 mb-2">
-            {syncStatus.total - syncStatus.pending} <span className="text-slate-200 text-2xl">/ {syncStatus.total}</span>
-          </h3>
-          <div className="flex items-center gap-2">
-            <div className={`w-3 h-3 rounded-full ${syncStatus.pending > 0 ? 'bg-orange-500 animate-pulse' : 'bg-emerald-500'}`}></div>
-            <p className="text-xs font-bold text-slate-500">
-              {syncStatus.pending > 0 ? 'Vendas pendentes' : 'Sistema sincronizado'}
-            </p>
-          </div>
-        </div>
-
-        {/* Faturamento */}
-        <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-8">
-          <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Faturamento Mensal</p>
-          <h3 className="text-4xl font-black text-slate-800 mb-2">
-            {stats.monthlyRevenue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-          </h3>
-          <p className="text-xs font-bold text-slate-400">Total Acumulado: {stats.totalRevenue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
-        </div>
-      </div>
-      
-      {/* SEÇÃO DE ALERTAS DE ESTOQUE */}
-      <div className="bg-white rounded-[40px] border border-slate-100 shadow-sm overflow-hidden flex flex-col">
-        <div className="bg-brand-600 p-6 px-10 flex justify-between items-center">
-          <div className="flex items-center gap-4 text-white">
-            <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center text-2xl">
-              <i className={`ph ${alertFilter === 'low' ? 'ph-warning-octagon' : 'ph-clock-counter-clockwise'}`}></i>
+        {/* Sync and Revenue Stats */}
+        <div className="lg:col-span-8 grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Sync Card */}
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 flex flex-col justify-center relative overflow-hidden">
+            <div className="absolute -right-4 -bottom-4 text-slate-50 opacity-50">
+              <i className="ph ph-cloud-arrow-up text-8xl"></i>
             </div>
-            <div>
-              <h3 className="text-xl font-black uppercase tracking-tighter italic">
-                {alertFilter === 'low' ? 'Central de Alertas' : 'Estoque Parado'}
+            <div className="relative z-10">
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Status de Sincronização</p>
+              <div className="flex items-baseline gap-2">
+                <span className="text-4xl font-bold text-slate-800 tracking-tighter">{syncStatus.total - syncStatus.pending}</span>
+                <span className="text-slate-300 font-bold text-lg">/ {syncStatus.total}</span>
+              </div>
+              <div className="mt-3 flex items-center gap-2">
+                <div className={`w-2 h-2 rounded-full ${syncStatus.pending > 0 ? 'bg-orange-500 animate-pulse' : 'bg-emerald-500'}`}></div>
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-tight">
+                  {syncStatus.pending > 0 ? `${syncStatus.pending} registros aguardando nuvem` : 'Base local 100% espelhada'}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Revenue Card */}
+          <div className="bg-slate-900 rounded-2xl shadow-lg p-5 flex flex-col justify-center relative overflow-hidden">
+            <div className="absolute -right-4 -top-4 text-white/5">
+              <i className="ph ph-chart-line-up text-9xl"></i>
+            </div>
+            <div className="relative z-10">
+              <p className="text-[10px] font-bold text-brand-400 uppercase tracking-widest mb-1">Faturamento Mensal</p>
+              <h3 className="text-3xl font-bold text-white tracking-tight font-mono">
+                {stats.monthlyRevenue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
               </h3>
-              <p className="text-white/60 text-[10px] font-bold uppercase tracking-widest">
-                {alertFilter === 'low' ? 'Produtos com estoque abaixo do limite' : 'Produtos sem venda há mais de 30 dias'}
+              <p className="mt-2 text-[9px] font-bold text-slate-500 uppercase tracking-wider">
+                Acumulado Histórico: {stats.totalRevenue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
               </p>
             </div>
           </div>
+        </div>
+      </div>
+      
+      {/* SEÇÃO DE ALERTAS DE ESTOQUE - Compact & Professional */}
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden flex flex-col">
+        <div className="bg-slate-50 p-3 px-6 flex flex-col sm:flex-row justify-between items-center gap-3 border-b border-slate-100">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 bg-white border border-slate-200 rounded-lg flex items-center justify-center text-slate-400">
+              <i className={`ph ${alertFilter === 'low' ? 'ph-warning-octagon' : 'ph-clock-counter-clockwise'} text-lg`}></i>
+            </div>
+            <div>
+              <h3 className="text-xs font-bold text-slate-700 uppercase tracking-tight">
+                {alertFilter === 'low' ? 'Monitor de Estoque Crítico' : 'Análise de Itens Parados'}
+              </h3>
+              <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Inteligência de Inventário</p>
+            </div>
+          </div>
           
-          <div className="flex items-center gap-2 bg-black/10 p-1.5 rounded-2xl">
+          <div className="flex items-center gap-1 bg-white p-1 rounded-xl border border-slate-200 shadow-sm">
             <button 
               onClick={() => setAlertFilter('low')}
-              className={`px-4 py-2 rounded-xl text-[10px] font-black transition-all ${alertFilter === 'low' ? 'bg-white text-brand-600 shadow-lg' : 'text-white/60 hover:text-white'}`}
+              className={`px-4 py-1.5 rounded-lg text-[9px] font-bold uppercase transition-all ${alertFilter === 'low' ? 'bg-slate-900 text-white shadow-md' : 'text-slate-400 hover:text-slate-600'}`}
             >
-              BAIXO ESTOQUE ({lowStockItems.length})
+              Baixo Estoque ({lowStockItems.length})
             </button>
             <button 
               onClick={() => setAlertFilter('stale')}
-              className={`px-4 py-2 rounded-xl text-[10px] font-black transition-all ${alertFilter === 'stale' ? 'bg-white text-brand-600 shadow-lg' : 'text-white/60 hover:text-white'}`}
+              className={`px-4 py-1.5 rounded-lg text-[9px] font-bold uppercase transition-all ${alertFilter === 'stale' ? 'bg-slate-900 text-white shadow-md' : 'text-slate-400 hover:text-slate-600'}`}
             >
-              ESTOQUE PARADO ({staleStockItems.length})
+              Sem Giro ({staleStockItems.length})
             </button>
           </div>
         </div>
 
-        <div className="p-4">
+        <div className="p-2">
           {activeItems.length === 0 ? (
-            <div className="py-20 text-center text-slate-300 font-bold uppercase tracking-widest flex flex-col items-center gap-4">
-              <i className="ph ph-check-circle text-6xl opacity-20"></i>
-              Tudo em ordem! Nada para mostrar aqui.
+            <div className="py-16 text-center text-slate-300 font-bold uppercase tracking-widest flex flex-col items-center gap-2">
+              <i className="ph ph-check-circle text-4xl opacity-20"></i>
+              <span className="text-[10px]">Operação Saudável: Sem Alertas</span>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 p-2">
               {activeItems.map((item, idx) => (
-                <div key={idx} className="bg-slate-50 rounded-3xl p-6 border border-slate-100 flex flex-col gap-4 group hover:border-brand-200 transition-all">
-                  <div className="flex items-center justify-between">
+                <div key={idx} className="bg-white rounded-xl p-3 border border-slate-100 flex flex-col gap-3 group hover:border-brand-300 hover:shadow-sm transition-all">
+                  <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
-                      <h4 className="font-black text-slate-800 text-sm uppercase truncate">{item.name}</h4>
-                      <span className="text-[10px] font-mono font-bold text-slate-400 block mt-1 uppercase">Código: #{item.barcode}</span>
+                      <h4 className="font-bold text-slate-700 text-[11px] uppercase truncate leading-tight">{item.name}</h4>
+                      <span className="text-[8px] font-mono font-bold text-slate-400 block mt-0.5 tracking-tighter">#{item.barcode}</span>
                     </div>
-                    {alertFilter === 'low' && (
-                      <div className="text-right">
-                        <span className="text-[9px] font-black text-slate-400 uppercase block">Estoque Mínimo</span>
-                        <span className="text-lg font-black text-slate-400 italic">{item.min_1 || 2}</span>
-                      </div>
-                    )}
-                    {alertFilter === 'stale' && (
-                      <div className="text-right">
-                        <span className="text-[9px] font-black text-slate-400 uppercase block">Tolerância</span>
-                        <span className="text-lg font-black text-slate-400 italic">{item.stale_1 || 30}d</span>
-                      </div>
-                    )}
+                    <div className="text-right shrink-0">
+                      <span className="text-[7px] font-bold text-slate-400 uppercase block leading-none mb-1">
+                        {alertFilter === 'low' ? 'Mínimo' : 'Tolerância'}
+                      </span>
+                      <span className="text-xs font-bold text-slate-500 italic bg-slate-50 px-1.5 py-0.5 rounded border border-slate-100">
+                        {alertFilter === 'low' ? (item.min_1 || 2) : `${item.stale_1 || 30}d`}
+                      </span>
+                    </div>
                   </div>
                   
-                  <div className="grid grid-cols-3 gap-2 pt-4 border-t border-slate-200/50">
-                    <div className="bg-white p-3 rounded-2xl border border-slate-100 text-center relative overflow-hidden">
-                      {alertFilter === 'low' && item.stock_1 <= (item.min_1 || 2) && <div className="absolute top-0 left-0 w-full h-1 bg-red-500"></div>}
-                      {alertFilter === 'stale' && <div className="absolute top-0 left-0 w-full h-1 bg-brand-400"></div>}
-                      <span className="text-[8px] font-black text-slate-400 uppercase block mb-1">Loja A</span>
-                      <span className={`text-sm font-black ${alertFilter === 'low' && item.stock_1 <= (item.min_1 || 2) ? 'text-red-600' : 'text-slate-600'}`}>{item.stock_1}</span>
-                      {alertFilter === 'stale' && <span className="text-[7px] block text-slate-300 font-bold">{item.stale_1}d</span>}
-                    </div>
-                    <div className="bg-white p-3 rounded-2xl border border-slate-100 text-center relative overflow-hidden">
-                      {alertFilter === 'low' && item.stock_2 <= (item.min_2 || 2) && <div className="absolute top-0 left-0 w-full h-1 bg-red-500"></div>}
-                      {alertFilter === 'stale' && <div className="absolute top-0 left-0 w-full h-1 bg-brand-400"></div>}
-                      <span className="text-[8px] font-black text-slate-400 uppercase block mb-1">Loja B</span>
-                      <span className={`text-sm font-black ${alertFilter === 'low' && item.stock_2 <= (item.min_2 || 2) ? 'text-red-600' : 'text-slate-600'}`}>{item.stock_2}</span>
-                      {alertFilter === 'stale' && <span className="text-[7px] block text-slate-300 font-bold">{item.stale_2}d</span>}
-                    </div>
-                    <div className="bg-white p-3 rounded-2xl border border-slate-100 text-center relative overflow-hidden">
-                      {alertFilter === 'low' && item.stock_3 <= (item.min_3 || 2) && <div className="absolute top-0 left-0 w-full h-1 bg-red-500"></div>}
-                      {alertFilter === 'stale' && <div className="absolute top-0 left-0 w-full h-1 bg-brand-400"></div>}
-                      <span className="text-[8px] font-black text-slate-400 uppercase block mb-1">Loja C</span>
-                      <span className={`text-sm font-black ${alertFilter === 'low' && item.stock_3 <= (item.min_3 || 2) ? 'text-red-600' : 'text-slate-600'}`}>{item.stock_3}</span>
-                      {alertFilter === 'stale' && <span className="text-[7px] block text-slate-300 font-bold">{item.stale_3}d</span>}
-                    </div>
+                  <div className="grid grid-cols-3 gap-1.5 pt-2 border-t border-slate-50">
+                    {[1, 2, 3].map(storeIdx => {
+                      const stock = item[`stock_${storeIdx}`];
+                      const min = item[`min_${storeIdx}`] || 2;
+                      const isLow = alertFilter === 'low' && stock <= min;
+                      const storeName = storeIdx === 1 ? 'Centro' : storeIdx === 2 ? 'Avenida' : 'Shopping';
+                      
+                      return (
+                        <div key={storeIdx} className={`p-1.5 rounded-lg border text-center relative overflow-hidden transition-colors ${isLow ? 'bg-red-50/50 border-red-100' : 'bg-slate-50/30 border-slate-100'}`}>
+                          <span className="text-[7px] font-bold text-slate-400 uppercase block mb-0.5 truncate">{storeName}</span>
+                          <span className={`text-xs font-bold ${isLow ? 'text-red-600' : 'text-slate-600'}`}>{stock}</span>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               ))}

@@ -28,7 +28,10 @@ const Users: React.FC = () => {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formName || !formPassword) return alert('PREENCHA TUDO!');
+    if (!formName || !formPassword) {
+      toast.error('PREENCHA TODOS OS CAMPOS!');
+      return;
+    }
 
     try {
       const result = await window.api.saveUser({
@@ -38,10 +41,13 @@ const Users: React.FC = () => {
         role: formRole
       });
       if (result.success) {
+        toast.success('Usuário salvo com sucesso!');
         setIsModalOpen(false);
         fetchUsers();
       }
-    } catch (e) { alert('ERRO AO SALVAR'); }
+    } catch (e) { 
+      toast.error('ERRO AO SALVAR USUÁRIO'); 
+    }
   };
 
   return (
