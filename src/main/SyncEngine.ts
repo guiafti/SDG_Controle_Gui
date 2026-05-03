@@ -143,6 +143,13 @@ export class SyncEngine {
         if (success) await run('UPDATE sales SET synced = 1 WHERE id = ?', [sale.id]);
       }
 
+      // 8. Sincronizar Clientes Pendentes (CRM)
+      const pendingCustomers = await query('SELECT * FROM customers WHERE synced = 0');
+      for (const customer of pendingCustomers) {
+        const success = await this.syncSingleCustomer(customer);
+        if (success) await run('UPDATE customers SET synced = 1 WHERE id = ?', [customer.id]);
+      }
+
       logSync('PUSH total concluído.');
     } catch (e: any) {
       logSync(`FALHA NO PUSH TOTAL: ${e.message}`);
@@ -339,6 +346,16 @@ export class SyncEngine {
         }
       }
 
+      // 6. Clientes (CRM)
+      const { data: cloudCustomers, error: ce } = await this.supabase.from('customers').select('*');
+      if (ce) console.error('[SYNC ERROR] Erro Pull Clientes:', ce);
+      if (cloudCustomers) {
+        for (const c of cloudCustomers) {
+          await run(`INSERT OR REPLACE INTO customers (id, name, phone, email, address, cpf, rg, birth_date, city, origin, notes, synced) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
+            [c.id, c.name, c.phone, c.email, c.address, c.cpf, c.rg, c.birth_date, c.city, c.origin, c.notes]);
+        }
+      }
+
       logSync('PULL finalizado com sucesso.');
     } catch (err: any) {
       logSync(`FALHA NO PULL: ${err.message}`);
@@ -377,6 +394,53 @@ export class SyncEngine {
       console.error('[SYNC FATAL] Falha ao sincronizar OS pendentes:', err);
     }
     this.isSyncing = false;
+  }
+
+  static async syncPendingCustomers() {
+    if (!this.supabase || this.isSyncing) return;
+    this.isSyncing = true;
+    try {
+      const pendingCustomers = await query('SELECT * FROM customers WHERE synced = 0');
+      for (const customer of pendingCustomers) {
+        const success = await this.syncSingleCustomer(customer);
+        if (success) await run('UPDATE customers SET synced = 1 WHERE id = ?', [customer.id]);
+      }
+    } catch (err: any) {
+      console.error('[SYNC FATAL] Falha ao sincronizar clientes pendentes:', err);
+    }
+    this.isSyncing = false;
+  }
+
+  private static async syncSingleCustomer(c: any): Promise<boolean> {
+    if (!this.supabase) return false;
+    try {
+      const payload = {
+        id: c.id,
+        name: String(c.name || '').trim().toUpperCase(),
+        phone: c.phone || '',
+        email: c.email || '',
+        address: c.address || '',
+        cpf: c.cpf || '',
+        rg: c.rg || '',
+        birth_date: c.birth_date || '',
+        city: String(c.city || 'ALMENARA').trim().toUpperCase(),
+        origin: String(c.origin || '').trim().toUpperCase(),
+        notes: c.notes || '',
+        created_at: c.created_at
+      };
+
+      const { error } = await this.supabase.from('customers').upsert(payload);
+
+      if (error) {
+        console.error(`[SYNC ERROR] Erro Supabase Cliente ${c.id}:`, error);
+        logSync(`Erro Supabase Cliente: ${error.message}`);
+        return false;
+      }
+      return true;
+    } catch (err: any) {
+      console.error(`[SYNC FATAL] Erro Rede Cliente ${c.id}:`, err);
+      return false;
+    }
   }
 
   static async syncPendingSales() {

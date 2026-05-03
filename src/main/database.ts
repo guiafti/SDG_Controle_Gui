@@ -106,6 +106,21 @@ export const initDatabase = async () => {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
+    CREATE TABLE IF NOT EXISTS customers (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      phone TEXT,
+      email TEXT,
+      address TEXT,
+      cpf TEXT,
+      rg TEXT,
+      birth_date TEXT,
+      city TEXT DEFAULT 'ALMENARA',
+      origin TEXT,
+      notes TEXT,
+      synced INTEGER DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
   `);
 
   // Migrações básicas
@@ -123,7 +138,12 @@ export const initDatabase = async () => {
     { table: 'maintenance_orders', col: 'serial_number', type: "TEXT" },
     { table: 'maintenance_orders', col: 'priority', type: "TEXT DEFAULT 'normal'" },
     { table: 'maintenance_orders', col: 'checklist', type: "TEXT" },
-    { table: 'maintenance_orders', col: 'technical_notes', type: "TEXT" }
+    { table: 'maintenance_orders', col: 'technical_notes', type: "TEXT" },
+    { table: 'customers', col: 'cpf', type: "TEXT" },
+    { table: 'customers', col: 'rg', type: "TEXT" },
+    { table: 'customers', col: 'birth_date', type: "TEXT" },
+    { table: 'customers', col: 'city', type: "TEXT DEFAULT 'ALMENARA'" },
+    { table: 'customers', col: 'origin', type: "TEXT" }
   ];
 
   for (const m of migrations) {

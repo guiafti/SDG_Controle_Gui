@@ -20,6 +20,8 @@ contextBridge.exposeInMainWorld('api', {
   getUsers: () => ipcRenderer.invoke('get-users'),
   saveUser: (user: any) => ipcRenderer.invoke('save-user', user),
   login: (credentials: any) => ipcRenderer.invoke('login', credentials),
+  getCustomers: () => ipcRenderer.invoke('get-customers'),
+  saveCustomer: (customer: any) => ipcRenderer.invoke('save-customer', customer),
   getCommissions: () => ipcRenderer.invoke('get-commissions'),
   getExpenses: () => ipcRenderer.invoke('get-expenses'),
   saveExpense: (expense: any) => ipcRenderer.invoke('save-expense', expense),

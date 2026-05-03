@@ -18,6 +18,7 @@ import Stores from './pages/Stores';
 import Settings from './pages/Settings';
 import Repairs from './pages/Repairs';
 import FinancialControl from './pages/FinancialControl';
+import CRM from './pages/CRM';
 import { CartItem } from '../domain/CartItem';
 
 import TitleBar from './components/TitleBar';
@@ -232,6 +233,7 @@ const App: React.FC = () => {
       case 'settings': return <Settings />;
       case 'repairs': return <Repairs />;
       case 'financeiro': return <FinancialControl />;
+      case 'crm': return <CRM />;
       default: return <Dashboard />;
     }
   };
@@ -276,7 +278,8 @@ const App: React.FC = () => {
                 adminSubView === 'settings' ? 'Personalização' : 
                 adminSubView === 'stores' ? 'Gerenciamento de Lojas' : 
                 adminSubView === 'repairs' ? 'Assistência Técnica' : 
-                adminSubView === 'financeiro' ? 'Controle Financeiro' : 'Gestão de Equipe'
+                adminSubView === 'financeiro' ? 'Controle Financeiro' : 
+                adminSubView === 'crm' ? 'CRM - Gestão de Clientes' : 'Gestão de Equipe'
               } />
               {renderAdminView()}
             </main>

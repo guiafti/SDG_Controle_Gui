@@ -138,6 +138,19 @@ ipcMain.handle('save-sale', async (_, sale: any) => {
   }
 });
 
+ipcMain.handle('get-customers', async () => await query('SELECT * FROM customers ORDER BY name ASC'));
+ipcMain.handle('save-customer', async (_, c: any) => {
+  try {
+    const id = c.id || randomUUID();
+    await run(`INSERT OR REPLACE INTO customers (id, name, phone, email, address, cpf, rg, birth_date, city, origin, notes, synced) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`,
+      [id, cleanText(c.name), c.phone || '', c.email || '', c.address || '', c.cpf || '', c.rg || '', c.birth_date || '', cleanText(c.city || 'ALMENARA'), cleanText(c.origin || ''), c.notes || '']);
+    SyncEngine.syncPendingCustomers().catch(() => {});
+    return { success: true, id };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+});
+
 ipcMain.handle('get-stores', async (_, inc) => inc ? await query('SELECT * FROM stores ORDER BY archived ASC, name ASC') : await query('SELECT * FROM stores WHERE archived = 0 ORDER BY name ASC'));
 ipcMain.handle('save-store', async (_, { id, name }) => {
   if (id) await run('UPDATE stores SET name = ? WHERE id = ?', [name.trim().toUpperCase(), id]);
