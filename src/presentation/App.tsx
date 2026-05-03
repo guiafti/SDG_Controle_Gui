@@ -44,6 +44,13 @@ const App: React.FC = () => {
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [previewData, setPreviewData] = useState<any>(null);
 
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
   const loadSettings = async () => {
     try {
       const [settings, sData] = await Promise.all([
@@ -243,7 +250,9 @@ const App: React.FC = () => {
                 <BarcodeScanner onScan={processarCodigo} onOpenSearch={() => setIsSearchOpen(true)} />
                 <CartList items={carrinho} onUpdateQuantity={updateItemQuantity} logo={logoApp} />
               </div>
-              <FinancialPanel totalItems={totalVenda} discount={desconto} onDiscountChange={setDesconto} onFinish={handleFinishSale} />
+              <div className="flex flex-col gap-4">
+                <FinancialPanel totalItems={totalVenda} discount={desconto} onDiscountChange={setDesconto} onFinish={handleFinishSale} />
+              </div>
             </div>
 
             {isPreviewOpen && (
