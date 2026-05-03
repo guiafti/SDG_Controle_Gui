@@ -136,6 +136,32 @@ export const initDatabase = async () => {
       synced INTEGER DEFAULT 0,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
+    CREATE TABLE IF NOT EXISTS financial_transactions (
+      id TEXT PRIMARY KEY,
+      type TEXT NOT NULL,
+      category TEXT NOT NULL,
+      description TEXT,
+      amount REAL NOT NULL,
+      date TEXT DEFAULT CURRENT_TIMESTAMP,
+      payment_method TEXT,
+      store_id TEXT,
+      reference_id TEXT,
+      synced INTEGER DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE TABLE IF NOT EXISTS accounts_payable_receivable (
+      id TEXT PRIMARY KEY,
+      type TEXT NOT NULL,
+      description TEXT NOT NULL,
+      amount REAL NOT NULL,
+      due_date TEXT NOT NULL,
+      status TEXT DEFAULT 'pending',
+      category_id TEXT,
+      store_id TEXT,
+      reference_id TEXT,
+      synced INTEGER DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
   `);
 
   // Migrações básicas
@@ -165,13 +191,37 @@ export const initDatabase = async () => {
     { table: 'tasks', col: 'photo_proof', type: "TEXT" },
     { table: 'tasks', col: 'justification', type: "TEXT" },
     { table: 'tasks', col: 'completed_at', type: "DATETIME" },
-    { table: 'tasks', col: 'synced', type: "INTEGER DEFAULT 0" }
+    { table: 'tasks', col: 'synced', type: "INTEGER DEFAULT 0" },
+    { table: 'financial_transactions', col: 'reference_id', type: "TEXT" }
   ];
 
   for (const m of migrations) {
     try {
       database.exec(`ALTER TABLE ${m.table} ADD COLUMN ${m.col} ${m.type}`);
     } catch (e) { /* Coluna já existe */ }
+  }
+
+  // Migração de dados legados para financial_transactions
+  const transactionCount: any = database.prepare('SELECT count(*) as count FROM financial_transactions').get();
+  if (transactionCount.count === 0) {
+    console.log('[BANCO] Migrando dados legados para financial_transactions...');
+    
+    // Migrar Vendas
+    database.exec(`
+      INSERT INTO financial_transactions (id, type, category, description, amount, date, payment_method, store_id, reference_id)
+      SELECT id, 'INFLOW', 'VENDA', 'VENDA PDV - ' || vendedor, total, created_at, payment_method, store_id, id
+      FROM sales
+    `);
+
+    // Migrar Despesas
+    database.exec(`
+      INSERT INTO financial_transactions (id, type, category, description, amount, date, payment_method, store_id, reference_id)
+      SELECT e.id, 'OUTFLOW', c.name, e.description, e.value, e.date, e.payment_method, e.store_id, e.id
+      FROM expenses e
+      LEFT JOIN expense_categories c ON e.category_id = c.id
+    `);
+    
+    console.log('[BANCO] Migração concluída.');
   }
 
   const storeCount: any = database.prepare('SELECT count(*) as count FROM stores').get();

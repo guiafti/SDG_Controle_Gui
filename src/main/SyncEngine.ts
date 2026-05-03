@@ -157,6 +157,21 @@ export class SyncEngine {
         if (success) await run('UPDATE tasks SET synced = 1 WHERE id = ?', [task.id]);
       }
 
+      // 10. Sincronizar Transações Financeiras Pendentes
+      const pendingTransactions = await query('SELECT * FROM financial_transactions WHERE synced = 0');
+      for (const trans of pendingTransactions) {
+        const success = await this.syncSingleTransaction(trans);
+        if (success) await run('UPDATE financial_transactions SET synced = 1 WHERE id = ?', [trans.id]);
+      }
+
+      // 11. Sincronizar Comissões
+      const commissions = await query('SELECT * FROM commissions');
+      if (commissions.length > 0) {
+        await this.supabase.from('commissions').upsert(commissions.map(c => ({
+          id: c.id, sale_id: c.sale_id, vendedor: c.vendedor, value: c.value, percentage: c.percentage, status: c.status, created_at: c.created_at
+        })));
+      }
+
       logSync('PUSH total concluído.');
     } catch (e: any) {
       logSync(`FALHA NO PUSH TOTAL: ${e.message}`);
@@ -529,6 +544,34 @@ export class SyncEngine {
     }
 
     this.isSyncing = false;
+  }
+
+  private static async syncSingleTransaction(t: any): Promise<boolean> {
+    if (!this.supabase) return false;
+    try {
+      const payload = {
+        id: t.id,
+        type: t.type,
+        category: t.category,
+        description: t.description,
+        amount: Number(t.amount || 0),
+        date: t.date,
+        payment_method: t.payment_method,
+        store_id: t.store_id,
+        reference_id: t.reference_id,
+        created_at: t.created_at
+      };
+
+      const { error } = await this.supabase.from('financial_transactions').upsert(payload);
+      if (error) {
+        console.error(`[SYNC ERROR] Erro Supabase Transação ${t.id}:`, error);
+        return false;
+      }
+      return true;
+    } catch (err: any) {
+      console.error(`[SYNC FATAL] Erro Rede Transação ${t.id}:`, err);
+      return false;
+    }
   }
 
   private static async realCloudAPI(sale: any): Promise<boolean> {

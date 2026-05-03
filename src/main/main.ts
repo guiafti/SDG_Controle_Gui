@@ -129,6 +129,16 @@ ipcMain.handle('save-sale', async (_, sale: any) => {
     const saleId = randomUUID();
     await run(`INSERT INTO sales (id, total, discount, payment_method, vendedor, store_id, customer_id, items, synced) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)`, 
       [saleId, sale.total, sale.discount || 0, sale.payment_method, sale.vendedor, sale.store_id, sale.customer_id || null, JSON.stringify(sale.items)]);
+    
+    // Automação: Registrar Transação Financeira (Entrada)
+    await run(`INSERT INTO financial_transactions (id, type, category, description, amount, payment_method, store_id, reference_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [randomUUID(), 'INFLOW', 'VENDA', `VENDA PDV - ${sale.vendedor}`, sale.total, sale.payment_method, sale.store_id, saleId]);
+
+    // Automação: Calcular e Registrar Comissão (2% padrão)
+    const commissionValue = sale.total * 0.02;
+    await run(`INSERT INTO commissions (id, sale_id, vendedor, value, percentage, status) VALUES (?, ?, ?, ?, ?, ?)`,
+      [randomUUID(), saleId, sale.vendedor, commissionValue, 2, 'pending']);
+
     for (const item of sale.items) {
       if (!String(item.id).startsWith('OS-')) await run(`UPDATE inventory SET quantity = quantity - ? WHERE product_id = ? AND store_id = ?`, [item.qtd, item.id, sale.store_id]);
     }
@@ -247,6 +257,13 @@ ipcMain.handle('save-repair', async (_, repair: any) => {
         repair.current_store_id || repair.entry_store_id, repair.status || 'Na Loja (Aguardando Envio)', 
         repair.payment_status || 'pending', repair.delivery_date || ''
       ]);
+
+    // Se a OS for marcada como paga no ato, registrar no financeiro
+    if (repair.payment_status === 'paid' && repair.price > 0) {
+      await run(`INSERT INTO financial_transactions (id, type, category, description, amount, payment_method, store_id, reference_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [randomUUID(), 'INFLOW', 'MANUTENÇÃO', `OS ${repair.device_model} - ${repair.customer_name}`, repair.price, 'DINHEIRO', repair.entry_store_id, id]);
+    }
+
     SyncEngine.syncPendingRepairs().catch(() => {});
     return { success: true, id };
   } catch (err: any) {
@@ -274,6 +291,17 @@ ipcMain.handle('update-repair-notes', async (_, { id, technical_notes }) => {
 ipcMain.handle('update-repair-payment', async (_, { id, payment_status }) => {
   try {
     await run('UPDATE maintenance_orders SET payment_status = ?, synced = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [payment_status, id]);
+    
+    // Se mudar para pago, lançar no financeiro se ainda não houver transação
+    if (payment_status === 'paid') {
+      const repair = await get('SELECT * FROM maintenance_orders WHERE id = ?', [id]);
+      const exists = await get('SELECT 1 FROM financial_transactions WHERE reference_id = ?', [id]);
+      if (repair && !exists && repair.price > 0) {
+        await run(`INSERT INTO financial_transactions (id, type, category, description, amount, payment_method, store_id, reference_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          [randomUUID(), 'INFLOW', 'MANUTENÇÃO', `OS ${repair.device_model} - ${repair.customer_name}`, repair.price, 'DINHEIRO', repair.entry_store_id, id]);
+      }
+    }
+    
     SyncEngine.syncPendingRepairs().catch(() => {});
     return { success: true };
   } catch (err: any) { return { success: false, error: err.message }; }
@@ -314,9 +342,19 @@ ipcMain.handle('save-expense', async (_, exp: any) => {
   const id = exp.id || randomUUID();
   await run(`INSERT OR REPLACE INTO expenses (id, description, category_id, value, date, payment_method, store_id, synced) VALUES (?, ?, ?, ?, ?, ?, ?, 0)`,
     [id, exp.description, exp.category_id, exp.value, exp.date || new Date().toISOString(), exp.payment_method, exp.store_id]);
+  
+  // Automação: Registrar Transação Financeira (Saída)
+  const cat = await get('SELECT name FROM expense_categories WHERE id = ?', [exp.category_id]);
+  await run(`INSERT INTO financial_transactions (id, type, category, description, amount, date, payment_method, store_id, reference_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [randomUUID(), 'OUTFLOW', cat?.name || 'OUTROS', exp.description, exp.value, exp.date || new Date().toISOString(), exp.payment_method, exp.store_id, id]);
+
   return { success: true };
 });
-ipcMain.handle('delete-expense', async (_, id: string) => { await run('DELETE FROM expenses WHERE id = ?', [id]); return { success: true }; });
+ipcMain.handle('delete-expense', async (_, id: string) => { 
+  await run('DELETE FROM expenses WHERE id = ?', [id]); 
+  await run('DELETE FROM financial_transactions WHERE reference_id = ?', [id]);
+  return { success: true }; 
+});
 ipcMain.handle('get-expense-categories', async () => await query('SELECT * FROM expense_categories ORDER BY name ASC'));
 ipcMain.handle('save-expense-category', async (_, cat: any) => {
   const id = cat.id || randomUUID();
@@ -333,16 +371,19 @@ ipcMain.handle('save-budget', async (_, b: any) => {
 
 ipcMain.handle('get-financial-summary', async () => {
   try {
-    const sales = await get('SELECT SUM(total) as total FROM sales');
-    const expenses = await get('SELECT SUM(value) as total FROM expenses');
+    const inflows = await get("SELECT SUM(amount) as total FROM financial_transactions WHERE type = 'INFLOW'");
+    const outflows = await get("SELECT SUM(amount) as total FROM financial_transactions WHERE type = 'OUTFLOW'");
     const commissions = await get('SELECT SUM(value) as total FROM commissions');
     
-    // Last 50 transactions consolidated
-    const recentSales = await query('SELECT id, total as value, created_at as date, vendedor as description, payment_method, "ENTRADA (VENDA)" as type FROM sales ORDER BY created_at DESC LIMIT 50');
-    const recentExpenses = await query('SELECT e.id, e.value, e.date, e.description, e.payment_method, c.name as type FROM expenses e LEFT JOIN expense_categories c ON e.category_id = c.id ORDER BY e.date DESC LIMIT 50');
-    
-    const ledger = [...recentSales, ...recentExpenses].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 50);
+    // Ledger consolidated from financial_transactions
+    const ledger = await query(`
+      SELECT id, amount as value, date, description, payment_method, 
+      (CASE WHEN type = 'INFLOW' THEN 'ENTRADA (' || category || ')' ELSE category END) as type 
+      FROM financial_transactions 
+      ORDER BY date DESC LIMIT 50
+    `);
 
+    // Profit margin calculation (Cost vs Sale)
     const saleRecords = await query('SELECT items FROM sales');
     let totalCost = 0;
     for (const s of saleRecords) {
@@ -355,12 +396,12 @@ ipcMain.handle('get-financial-summary', async () => {
       } catch(e) {}
     }
 
-    const trends = await query(`SELECT strftime('%m/%Y', created_at) as month, SUM(total) as inflow FROM sales GROUP BY month ORDER BY created_at DESC LIMIT 6`);
+    const trends = await query(`SELECT strftime('%m/%Y', date) as month, SUM(amount) as inflow FROM financial_transactions WHERE type = 'INFLOW' GROUP BY month ORDER BY date DESC LIMIT 6`);
 
     return {
-      totalInflow: sales?.total || 0,
-      totalOutflow: (expenses?.total || 0) + (commissions?.total || 0),
-      netProfit: (sales?.total || 0) - (expenses?.total || 0) - (commissions?.total || 0),
+      totalInflow: inflows?.total || 0,
+      totalOutflow: outflows?.total || 0,
+      netProfit: (inflows?.total || 0) - (outflows?.total || 0),
       estimatedCost: totalCost,
       trends: trends.reverse(),
       ledger
@@ -370,6 +411,7 @@ ipcMain.handle('get-financial-summary', async () => {
     return { totalInflow: 0, totalOutflow: 0, netProfit: 0, estimatedCost: 0, trends: [], ledger: [] };
   }
 });
+
 
 ipcMain.handle('get-dashboard-stats', async () => ({
   totalRevenue: (await get('SELECT SUM(total) as total FROM sales'))?.total || 0,

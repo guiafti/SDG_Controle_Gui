@@ -1,0 +1,9 @@
+node_modules
+dist
+release
+.git
+.vite
+local.db*
+*.log
+carga_total_produtos.xml
+importacao_produtos.xml
