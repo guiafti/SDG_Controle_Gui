@@ -151,18 +151,53 @@ ipcMain.handle('save-customer', async (_, c: any) => {
   }
 });
 
-ipcMain.handle('get-tasks', async () => await query('SELECT * FROM tasks ORDER BY created_at DESC'));
+ipcMain.handle('get-tasks', async () => {
+  const tasks = await query('SELECT * FROM tasks ORDER BY created_at DESC');
+  const today = new Date().toISOString().split('T')[0];
+  
+  // Logic to 'reset' routine tasks locally for the day
+  return tasks.map(t => {
+    if (t.is_routine && t.completed_at && !t.completed_at.startsWith(today)) {
+      return { ...t, status: 'pending', photo_proof: null, justification: null, completed_at: null };
+    }
+    return t;
+  });
+});
+
 ipcMain.handle('save-task', async (_, t: any) => {
   try {
     const id = t.id || randomUUID();
-    await run(`INSERT OR REPLACE INTO tasks (id, title, assignee_type, assignee_id, due_date, status) VALUES (?, ?, ?, ?, ?, ?)`,
-      [id, cleanText(t.title), t.assignee_type, t.assignee_id, t.due_date || '', t.status || 'pending']);
+    await run(`INSERT OR REPLACE INTO tasks (id, title, assignee_type, assignee_id, due_date, status, is_routine, proof_required, synced) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)`,
+      [id, cleanText(t.title), t.assignee_type, t.assignee_id, t.due_date || '', t.status || 'pending', t.is_routine ? 1 : 0, t.proof_required ? 1 : 0]);
+    SyncEngine.syncPendingTasks().catch(() => {});
     return { success: true, id };
   } catch (err: any) { return { success: false, error: err.message }; }
 });
+
+ipcMain.handle('complete-task', async (_, { id, photo, justification }) => {
+  try {
+    const now = new Date().toISOString();
+    await run('UPDATE tasks SET status = ?, photo_proof = ?, justification = ?, completed_at = ? WHERE id = ?', 
+      ['completed', photo || null, justification || null, now, id]);
+    return { success: true };
+  } catch (err: any) { return { success: false, error: err.message }; }
+});
+
 ipcMain.handle('toggle-task', async (_, { id, status }) => {
   try {
-    await run('UPDATE tasks SET status = ? WHERE id = ?', [status, id]);
+    const now = status === 'completed' ? new Date().toISOString() : null;
+    await run('UPDATE tasks SET status = ?, completed_at = ? WHERE id = ?', [status, now, id]);
+    return { success: true };
+  } catch (err: any) { return { success: false, error: err.message }; }
+});
+
+ipcMain.handle('delete-task', async (_, id: string) => {
+  try {
+    await run('DELETE FROM tasks WHERE id = ?', [id]);
+    const supabase = getSupabase();
+    if (supabase) {
+      await supabase.from('tasks').delete().eq('id', id);
+    }
     return { success: true };
   } catch (err: any) { return { success: false, error: err.message }; }
 });

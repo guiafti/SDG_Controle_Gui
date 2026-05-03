@@ -6,9 +6,14 @@ interface PDVHeaderProps {
   onGoToAdmin: () => void;
   onLogout: () => void;
   logo?: string;
+  pendingTasksCount?: number;
+  onOpenMissions?: () => void;
 }
 
-const PDVHeader: React.FC<PDVHeaderProps> = ({ loja, vendedor, onGoToAdmin, onLogout, logo }) => {
+const PDVHeader: React.FC<PDVHeaderProps> = ({ 
+  loja, vendedor, onGoToAdmin, onLogout, logo, 
+  pendingTasksCount = 0, onOpenMissions 
+}) => {
   const [time, setTime] = useState(new Date());
   const [reminder, setReminder] = useState('Clique aqui para definir um lembrete para seu turno...');
 
@@ -64,14 +69,29 @@ const PDVHeader: React.FC<PDVHeaderProps> = ({ loja, vendedor, onGoToAdmin, onLo
                 <span className="text-xs font-bold text-slate-200 uppercase tracking-tight">{loja || 'LOJA MATRIZ'}</span>
               </div>
             </div>
-            <div className="flex flex-col">
-              <span className="text-[9px] text-slate-500 uppercase font-bold tracking-widest mb-1">Operador Ativo</span>
-              <div className="flex items-center gap-2 text-xs font-bold text-slate-100 uppercase tracking-tight">
-                <div className="w-8 h-8 rounded-full bg-brand-500/20 border border-brand-500/30 flex items-center justify-center text-brand-400">
-                  <i className="ph ph-user text-lg"></i>
+            <div className="flex items-center gap-4">
+              <div className="flex flex-col">
+                <span className="text-[9px] text-slate-500 uppercase font-bold tracking-widest mb-1">Operador Ativo</span>
+                <div className="flex items-center gap-2 text-xs font-bold text-slate-100 uppercase tracking-tight">
+                  <div className="w-8 h-8 rounded-full bg-brand-500/20 border border-brand-500/30 flex items-center justify-center text-brand-400">
+                    <i className="ph ph-user text-lg"></i>
+                  </div>
+                  {vendedor || 'SISTEMA'}
                 </div>
-                {vendedor || 'SISTEMA'}
               </div>
+
+              {/* Notification Bell */}
+              <button 
+                onClick={onOpenMissions}
+                className="relative w-12 h-12 bg-white/5 rounded-2xl border border-white/10 flex items-center justify-center hover:bg-white/10 transition-all group"
+              >
+                <i className={`ph ph-bell-ringing text-2xl ${pendingTasksCount > 0 ? 'text-brand-400 animate-swing' : 'text-slate-500'}`}></i>
+                {pendingTasksCount > 0 && (
+                  <span className="absolute -top-2 -right-2 bg-red-500 text-white text-[10px] font-black w-6 h-6 rounded-full flex items-center justify-center border-2 border-slate-900 shadow-xl animate-bounce">
+                    {pendingTasksCount}
+                  </span>
+                )}
+              </button>
             </div>
           </div>
         </div>

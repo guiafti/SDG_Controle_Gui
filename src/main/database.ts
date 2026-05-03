@@ -128,6 +128,12 @@ export const initDatabase = async () => {
       assignee_id TEXT NOT NULL,
       status TEXT DEFAULT 'pending',
       due_date TEXT,
+      is_routine INTEGER DEFAULT 0,
+      proof_required INTEGER DEFAULT 0,
+      photo_proof TEXT,
+      justification TEXT,
+      completed_at DATETIME,
+      synced INTEGER DEFAULT 0,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
   `);
@@ -152,7 +158,13 @@ export const initDatabase = async () => {
     { table: 'customers', col: 'rg', type: "TEXT" },
     { table: 'customers', col: 'birth_date', type: "TEXT" },
     { table: 'customers', col: 'city', type: "TEXT DEFAULT 'ALMENARA'" },
-    { table: 'customers', col: 'origin', type: "TEXT" }
+    { table: 'customers', col: 'origin', type: "TEXT" },
+    { table: 'tasks', col: 'is_routine', type: "INTEGER DEFAULT 0" },
+    { table: 'tasks', col: 'proof_required', type: "INTEGER DEFAULT 0" },
+    { table: 'tasks', col: 'photo_proof', type: "TEXT" },
+    { table: 'tasks', col: 'justification', type: "TEXT" },
+    { table: 'tasks', col: 'completed_at', type: "DATETIME" },
+    { table: 'tasks', col: 'synced', type: "INTEGER DEFAULT 0" }
   ];
 
   for (const m of migrations) {

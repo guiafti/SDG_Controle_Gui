@@ -43,13 +43,30 @@ const App: React.FC = () => {
 
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [previewData, setPreviewData] = useState<any>(null);
+  const [tasks, setTasks] = useState<any[]>([]);
 
   const [currentTime, setCurrentTime] = useState(new Date());
 
+  const fetchTasks = async () => {
+    try {
+      const data = await window.api.getTasks();
+      setTasks(data || []);
+    } catch (e) { console.error(e); }
+  };
+
   useEffect(() => {
+    fetchTasks();
+    const taskInterval = setInterval(fetchTasks, 60000); // 1 min
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
-    return () => clearInterval(timer);
+    return () => { clearInterval(timer); clearInterval(taskInterval); };
   }, []);
+
+  const pendingTasksCount = tasks.filter(t => {
+    if (t.status !== 'pending') return false;
+    if (userRole === 'admin') return true;
+    return (t.assignee_type === 'store' && t.assignee_id === lojaId) || 
+           (t.assignee_type === 'user' && (t.assignee_id === vendedor));
+  }).length;
 
   const loadSettings = async () => {
     try {
@@ -237,9 +254,9 @@ const App: React.FC = () => {
       case 'settings': return <Settings />;
       case 'repairs': return <Repairs />;
       case 'financeiro': return <FinancialControl />;
-      case 'crm': return <CRM currentUser={{ id: '', name: vendedor, role: userRole }} currentStoreId={lojaId} />;
+      case 'crm': return <CRM />;
       case 'analytics': return <Analytics />;
-      case 'network': return <NetworkManagement />;
+      case 'network': return <NetworkManagement currentUser={{ id: '', name: vendedor, role: userRole }} currentStoreId={lojaId} />;
       default: return <Dashboard />;
     }
   };
@@ -252,7 +269,15 @@ const App: React.FC = () => {
         <ProductSearchModal isOpen={isSearchOpen} onClose={() => setIsSearchOpen(false)} onSelectProduct={(code) => { processarCodigo(code); setIsSearchOpen(false); }} storeId={lojaId} />
         {view === 'pdv' && (
           <div id="tela-pdv" className="absolute inset-0 bg-slate-100 z-50 flex flex-col">
-            <PDVHeader loja={loja} vendedor={vendedor} onGoToAdmin={() => setView('admin')} onLogout={handleLogout} logo={logoApp} />
+            <PDVHeader 
+              loja={loja} 
+              vendedor={vendedor} 
+              onGoToAdmin={() => setView('admin')} 
+              onLogout={handleLogout} 
+              logo={logoApp} 
+              pendingTasksCount={pendingTasksCount}
+              onOpenMissions={() => { setAdminSubView('network'); setView('admin'); }}
+            />
             <div className="flex-1 overflow-hidden flex flex-col lg:flex-row gap-4 p-4">
               <div className="flex-1 flex flex-col gap-3 min-w-0">
                 <BarcodeScanner onScan={processarCodigo} onOpenSearch={() => setIsSearchOpen(true)} />
@@ -285,7 +310,8 @@ const App: React.FC = () => {
                 adminSubView === 'financeiro' ? 'Controle Financeiro' : 
                 adminSubView === 'crm' ? 'CRM - Gestão de Clientes' : 
                 adminSubView === 'analytics' ? 'Análise Preditiva' : 
-                adminSubView === 'network' ? 'Gestão de Rede Profissional' : 'Operação Interna'
+                adminSubView === 'network' ? 'Gestão de Rede Profissional' : 
+                adminSubView === 'processes' ? 'Gestão de Processos' : 'Operação Interna'
               } />
               {renderAdminView()}
             </main>

@@ -150,6 +150,13 @@ export class SyncEngine {
         if (success) await run('UPDATE customers SET synced = 1 WHERE id = ?', [customer.id]);
       }
 
+      // 9. Sincronizar Tarefas/Processos Pendentes
+      const pendingTasks = await query('SELECT * FROM tasks WHERE synced = 0');
+      for (const task of pendingTasks) {
+        const success = await this.syncSingleTask(task);
+        if (success) await run('UPDATE tasks SET synced = 1 WHERE id = ?', [task.id]);
+      }
+
       logSync('PUSH total concluído.');
     } catch (e: any) {
       logSync(`FALHA NO PUSH TOTAL: ${e.message}`);
@@ -356,6 +363,16 @@ export class SyncEngine {
         }
       }
 
+      // 7. Tarefas (Processos)
+      const { data: cloudTasks, error: te } = await this.supabase.from('tasks').select('*');
+      if (te) console.error('[SYNC ERROR] Erro Pull Tarefas:', te);
+      if (cloudTasks) {
+        for (const t of cloudTasks) {
+          await run(`INSERT OR REPLACE INTO tasks (id, title, assignee_type, assignee_id, status, due_date, is_routine, proof_required, photo_proof, justification, completed_at, synced) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
+            [t.id, t.title, t.assignee_type, t.assignee_id, t.status, t.due_date, t.is_routine, t.proof_required, t.photo_proof, t.justification, t.completed_at]);
+        }
+      }
+
       logSync('PULL finalizado com sucesso.');
     } catch (err: any) {
       logSync(`FALHA NO PULL: ${err.message}`);
@@ -394,6 +411,53 @@ export class SyncEngine {
       console.error('[SYNC FATAL] Falha ao sincronizar OS pendentes:', err);
     }
     this.isSyncing = false;
+  }
+
+  static async syncPendingTasks() {
+    if (!this.supabase || this.isSyncing) return;
+    this.isSyncing = true;
+    try {
+      const pendingTasks = await query('SELECT * FROM tasks WHERE synced = 0');
+      for (const task of pendingTasks) {
+        const success = await this.syncSingleTask(task);
+        if (success) await run('UPDATE tasks SET synced = 1 WHERE id = ?', [task.id]);
+      }
+    } catch (err: any) {
+      console.error('[SYNC FATAL] Falha ao sincronizar tarefas pendentes:', err);
+    }
+    this.isSyncing = false;
+  }
+
+  private static async syncSingleTask(t: any): Promise<boolean> {
+    if (!this.supabase) return false;
+    try {
+      const payload = {
+        id: t.id,
+        title: String(t.title).toUpperCase(),
+        assignee_type: t.assignee_type,
+        assignee_id: t.assignee_id,
+        status: t.status,
+        due_date: t.due_date,
+        is_routine: t.is_routine == 1 ? 1 : 0,
+        proof_required: t.proof_required == 1 ? 1 : 0,
+        photo_proof: t.photo_proof,
+        justification: t.justification,
+        completed_at: t.completed_at,
+        created_at: t.created_at
+      };
+
+      const { error } = await this.supabase.from('tasks').upsert(payload);
+
+      if (error) {
+        console.error(`[SYNC ERROR] Erro Supabase Tarefa ${t.id}:`, error);
+        logSync(`Erro Supabase Tarefa: ${error.message}`);
+        return false;
+      }
+      return true;
+    } catch (err: any) {
+      console.error(`[SYNC FATAL] Erro Rede Tarefa ${t.id}:`, err);
+      return false;
+    }
   }
 
   static async syncPendingCustomers() {

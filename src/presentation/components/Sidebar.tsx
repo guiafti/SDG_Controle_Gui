@@ -82,6 +82,14 @@ const Sidebar: React.FC<SidebarProps> = ({ activeView, onSwitchView, onOpenPDV, 
           Assistência
         </button>
 
+        <button 
+          onClick={() => onSwitchView('network')}
+          className={`nav-btn w-full flex items-center gap-3 px-4 py-2.5 rounded-xl font-bold text-xs transition-all ${activeView === 'network' ? 'bg-white/10 text-white border border-white/5 shadow-inner' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
+        >
+          <i className="ph ph-tree-structure text-xl"></i>
+          Gestão de Rede
+        </button>
+
         {role === 'admin' && (
           <button 
             onClick={() => onSwitchView('financeiro')}
@@ -94,16 +102,6 @@ const Sidebar: React.FC<SidebarProps> = ({ activeView, onSwitchView, onOpenPDV, 
         
         {role === 'admin' && (
           <>
-            <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-4 mb-1 ml-2">Gestão</div>
-
-            <button 
-              onClick={() => onSwitchView('network')}
-              className={`nav-btn w-full flex items-center gap-3 px-4 py-2.5 rounded-xl font-bold text-xs transition-all ${activeView === 'network' ? 'bg-white/10 text-white border border-white/5 shadow-inner' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
-            >
-              <i className="ph ph-tree-structure text-xl"></i>
-              Gestão de Rede
-            </button>
-
             <button 
               onClick={() => onSwitchView('settings')}
               className={`nav-btn w-full flex items-center gap-3 px-4 py-2.5 rounded-xl font-bold text-xs transition-all mt-auto border ${activeView === 'settings' ? 'bg-brand-500 text-white border-brand-500 shadow-lg shadow-brand-500/10' : 'text-slate-500 border-white/5 hover:border-white/10 hover:text-white'}`}

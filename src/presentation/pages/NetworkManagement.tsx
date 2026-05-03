@@ -1,450 +1,308 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
+import TaskCompletionModal from '../components/TaskCompletionModal';
 
-const NetworkManagement: React.FC = () => {
+interface NetworkManagementProps {
+  currentUser?: { id: string, name: string, role: string };
+  currentStoreId?: string;
+}
+
+const NetworkManagement: React.FC<NetworkManagementProps> = ({ currentUser, currentStoreId }) => {
   const [stores, setStores] = useState<any[]>([]);
   const [users, setUsers] = useState<any[]>([]);
-  const [commissions, setCommissions] = useState<any[]>([]);
   const [tasks, setTasks] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [expandedSection, setExpandedSection] = useState<string | null>('stores');
+  const [expandedSection, setExpandedSection] = useState<string | null>(null);
 
-  // Modals
+  useEffect(() => {
+    setExpandedSection('missions');
+  }, []);
+
   const [isStoreModalOpen, setIsStoreModalOpen] = useState(false);
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
+  const [selectedTask, setSelectedTask] = useState<any>(null);
   const [editingStore, setEditingStore] = useState<any>(null);
   const [editingUser, setEditingUser] = useState<any>(null);
 
-  // Form states
   const [storeName, setStoreName] = useState('');
   const [userName, setUserName] = useState('');
   const [userPassword, setUserPassword] = useState('');
   const [userRole, setUserRole] = useState('vendedor');
-  const [showArchivedStores, setShowArchivedStores] = useState(false);
-
-  // Task form
+  
   const [taskTitle, setTaskTitle] = useState('');
   const [taskAssigneeType, setTaskAssigneeType] = useState<'store' | 'user'>('store');
   const [taskAssigneeId, setTaskAssigneeId] = useState('');
   const [taskDueDate, setTaskDueDate] = useState('');
+  const [taskIsRoutine, setTaskIsRoutine] = useState(false);
+  const [taskProofRequired, setTaskProofRequired] = useState(false);
 
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [sData, uData, cData, tData] = await Promise.all([
+      const [s, u, t] = await Promise.all([
         window.api.getStores(true),
         window.api.getUsers(),
-        window.api.getCommissions(),
         window.api.getTasks()
       ]);
-      setStores(sData || []);
-      setUsers(uData || []);
-      setCommissions(cData || []);
-      setTasks(tData || []);
-    } catch (e) {
-      toast.error('Erro ao carregar dados da rede');
-    } finally {
-      setLoading(false);
-    }
+      setStores(s || []);
+      setUsers(u || []);
+      setTasks(t || []);
+    } catch (e) { console.error(e); } 
+    finally { setLoading(false); }
   };
 
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => { 
+    fetchData();
+    const i = setInterval(fetchData, 30000);
+    return () => clearInterval(i);
+  }, []);
 
-  // --- Handlers: Tasks ---
   const handleSaveTask = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!taskTitle || !taskAssigneeId) return toast.error('PREENCHA O TÍTULO E O DESTINATÁRIO');
+    if (!taskTitle || !taskAssigneeId) return toast.error('PREENCHA TUDO');
+    const loadingId = toast.loading('Enviando missão...');
     try {
-      const res = await window.api.saveTask({ title: taskTitle, assignee_type: taskAssigneeType, assignee_id: taskAssigneeId, due_date: taskDueDate });
+      const res = await window.api.saveTask({ 
+        title: taskTitle.toUpperCase(), 
+        assignee_type: taskAssigneeType, 
+        assignee_id: taskAssigneeId, 
+        due_date: taskDueDate, 
+        is_routine: taskIsRoutine ? 1 : 0, 
+        proof_required: taskProofRequired ? 1 : 0 
+      });
       if (res.success) {
-        toast.success('MISSÃO ATRIBUÍDA');
-        setIsTaskModalOpen(false);
-        setTaskTitle('');
+        toast.success('COMANDO ENVIADO!', { id: loadingId });
+        setIsTaskModalOpen(false); 
+        setTaskTitle(''); 
         fetchData();
+      } else {
+        toast.error('ERRO: ' + (res.error || 'Falha ao salvar'), { id: loadingId });
       }
-    } catch (e) { toast.error('ERRO AO CRIAR TAREFA'); }
+    } catch (e) { toast.error('ERRO DE CONEXÃO', { id: loadingId }); }
   };
 
-  const toggleTaskStatus = async (id: string, currentStatus: string) => {
-    const newStatus = currentStatus === 'pending' ? 'completed' : 'pending';
-    const res = await window.api.toggleTask(id, newStatus);
+  const handleDeleteTask = async (id: string) => {
+    if (!window.confirm('Excluir esta missão permanentemente?')) return;
+    const res = await window.api.deleteTask(id);
     if (res.success) {
-      toast.success(newStatus === 'completed' ? 'MISSÃO CUMPRIDA!' : 'TAREFA REABERTA');
+      toast.success('MISSÃO EXCLUÍDA');
       fetchData();
     }
   };
 
-  // --- Handlers: Stores ---
-  const openStoreModal = (s: any = null) => {
-    setEditingStore(s);
-    setStoreName(s?.name || '');
-    setIsStoreModalOpen(true);
+  const handleConfirmCompletion = async (data: any) => {
+    if (!selectedTask) return;
+    const res = await window.api.completeTask(selectedTask.id, data.photo, data.justification);
+    if (res.success) { toast.success('OK!'); setSelectedTask(null); fetchData(); }
   };
+
+  const toggleTaskStatus = async (id: string, currentStatus: string) => {
+    const res = await window.api.toggleTask(id, currentStatus === 'pending' ? 'completed' : 'pending');
+    if (res.success) { toast.success('OK'); fetchData(); }
+  };
+
+  const myTasks = tasks.filter(t => {
+    if (currentUser?.role === 'admin') return true;
+    if (t.status !== 'pending') return false;
+    return (t.assignee_type === 'store' && t.assignee_id === currentStoreId) || (t.assignee_id === currentUser?.name);
+  });
 
   const handleSaveStore = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!storeName.trim()) return toast.error('NOME OBRIGATÓRIO');
-    const loadingId = toast.loading('Salvando unidade...');
-    try {
-      const res = await window.api.saveStore({ id: editingStore?.id, name: storeName });
-      if (res.success) {
-        toast.success('UNIDADE ATUALIZADA', { id: loadingId });
-        setIsStoreModalOpen(false);
-        fetchData();
-      }
-    } catch (e) { toast.error('ERRO DE COMUNICAÇÃO', { id: loadingId }); }
-  };
-
-  const handleArchiveStore = async (store: any) => {
-    const action = store.archived ? 'restaurar' : 'arquivar';
-    toast((t) => (
-      <div className="flex flex-col gap-3 p-1">
-        <p className="text-xs font-bold text-slate-800 uppercase">Deseja realmente {action} a loja "{store.name}"?</p>
-        <div className="flex gap-2">
-          <button onClick={async () => {
-            toast.dismiss(t.id);
-            const res = await window.api.archiveStore({ id: store.id, archived: !store.archived });
-            if (res.success) { toast.success('OPERADO COM SUCESSO'); fetchData(); }
-          }} className="flex-1 bg-brand-500 text-white py-2 rounded-lg font-bold text-[10px] uppercase">Sim</button>
-          <button onClick={() => toast.dismiss(t.id)} className="flex-1 bg-slate-100 text-slate-500 py-2 rounded-lg font-bold text-[10px] uppercase">Não</button>
-        </div>
-      </div>
-    ), { duration: 5000 });
-  };
-
-  // --- Handlers: Users ---
-  const openUserModal = (u: any = null) => {
-    setEditingUser(u);
-    setUserName(u?.name || '');
-    setUserPassword(u?.password || '');
-    setUserRole(u?.role || 'vendedor');
-    setIsUserModalOpen(true);
+    const res = await window.api.saveStore({ id: editingStore?.id, name: storeName });
+    if (res.success) { toast.success('LOJA SALVA'); setIsStoreModalOpen(false); fetchData(); }
   };
 
   const handleSaveUser = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!userName || !userPassword) return toast.error('PREENCHA TUDO');
-    try {
-      const res = await window.api.saveUser({ id: editingUser?.id, name: userName, password: userPassword, role: userRole });
-      if (res.success) {
-        toast.success('EQUIPE ATUALIZADA');
-        setIsUserModalOpen(false);
-        fetchData();
-      }
-    } catch (e) { toast.error('ERRO AO SALVAR'); }
+    const res = await window.api.saveUser({ id: editingUser?.id, name: userName, password: userPassword, role: userRole });
+    if (res.success) { toast.success('OPERADOR SALVO'); setIsUserModalOpen(false); fetchData(); }
   };
 
-  const filteredStores = stores.filter(s => showArchivedStores ? s.archived === 1 : s.archived === 0);
+  const handleArchiveStore = async (store: any) => {
+     const res = await window.api.archiveStore({ id: store.id, archived: !store.archived });
+     if (res.success) fetchData();
+  };
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-slate-50 overflow-hidden animate-in fade-in duration-500">
-      <main className="p-4 md:p-6 space-y-4 flex-1 overflow-y-auto custom-scrollbar pb-20">
+    <div className="flex-1 flex flex-col h-full bg-slate-50 animate-in fade-in duration-500 overflow-hidden">
+      <main className="p-4 md:p-6 space-y-4 flex-1 overflow-y-auto custom-scrollbar">
         
-        {/* Header Estratégico */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-2">
-          <div>
-            <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Gestão de Rede Profissional</h1>
-            <p className="text-slate-500 font-medium text-xs mt-0.5 uppercase tracking-widest">Controle Centralizado de Lojas, Equipes e Resultados</p>
-          </div>
-        </div>
-
-        {/* Section 1: Lojas e Unidades */}
-        <div className={`bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden transition-all duration-300 ${expandedSection === 'stores' ? 'flex-1' : 'h-auto'}`}>
-          <div 
-            onClick={() => setExpandedSection(expandedSection === 'stores' ? null : 'stores')}
-            className="p-4 px-6 flex justify-between items-center cursor-pointer hover:bg-slate-50/50 transition-colors border-b border-slate-50"
-          >
-            <div className="flex items-center gap-4">
-              <div className="w-10 h-10 bg-brand-50 rounded-xl flex items-center justify-center text-brand-600 shadow-sm"><i className="ph ph-buildings text-2xl"></i></div>
-              <div>
-                <h3 className="text-sm font-black text-slate-800 uppercase italic">Unidades Operacionais</h3>
-                <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">{stores.filter(s => !s.archived).length} Lojas Ativas na Rede</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-4">
-               <button onClick={(e) => { e.stopPropagation(); openStoreModal(); }} className="px-3 py-1.5 bg-brand-500 text-white rounded-lg text-[9px] font-black uppercase hover:bg-brand-600 transition-all shadow-md">+ Nova Loja</button>
-               <i className="ph ph-caret-down text-slate-400 transition-transform" style={{ transform: expandedSection === 'stores' ? 'rotate(180deg)' : 'rotate(0deg)' }}></i>
-            </div>
-          </div>
-          
-          {expandedSection === 'stores' && (
-            <div className="p-4 space-y-2 animate-in slide-in-from-top-2 duration-300">
-               <div className="flex justify-end mb-2">
-                  <button onClick={() => setShowArchivedStores(!showArchivedStores)} className="text-[8px] font-black text-slate-400 uppercase underline">{showArchivedStores ? 'Ver Ativas' : 'Ver Arquivadas'}</button>
+        {/* TOP: MISSION CONTROL (ADMIN SUMMARY) */}
+        {currentUser?.role === 'admin' && (
+          <div className="bg-slate-900 rounded-3xl p-6 shadow-2xl relative overflow-hidden border border-slate-800 mb-2">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-brand-500/10 rounded-full blur-3xl -mr-10 -mt-10"></div>
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 relative z-10">
+               <div>
+                  <h1 className="text-2xl font-bold text-white tracking-tight uppercase italic">Hub de Gestão de Rede</h1>
+                  <p className="text-brand-400 text-[10px] font-bold uppercase tracking-widest">Controle Profissional de Unidades e Processos</p>
                </div>
-               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                 {filteredStores.map(s => (
-                   <div key={s.id} className="p-3 bg-slate-50 border border-slate-100 rounded-xl flex items-center justify-between group hover:border-brand-300 transition-all">
-                      <div className="flex items-center gap-3">
-                         <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${s.archived ? 'bg-slate-100 text-slate-300' : 'bg-white text-brand-500 shadow-sm'}`}><i className="ph ph-storefront"></i></div>
-                         <span className={`text-xs font-bold uppercase ${s.archived ? 'text-slate-300 line-through' : 'text-slate-700'}`}>{s.name}</span>
-                      </div>
-                      <div className="flex gap-1">
-                        <button onClick={() => openStoreModal(s)} className="p-1.5 text-slate-400 hover:text-brand-600"><i className="ph ph-pencil-simple"></i></button>
-                        <button onClick={() => handleArchiveStore(s)} className={`p-1.5 ${s.archived ? 'text-emerald-500' : 'text-red-400'}`}><i className={`ph ${s.archived ? 'ph-arrow-u-up-left' : 'ph-archive'}`}></i></button>
-                      </div>
-                   </div>
-                 ))}
-               </div>
-            </div>
-          )}
-        </div>
-
-        {/* Section 2: Equipe e Operadores */}
-        <div className={`bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden transition-all duration-300 ${expandedSection === 'users' ? 'flex-1' : 'h-auto'}`}>
-          <div 
-            onClick={() => setExpandedSection(expandedSection === 'users' ? null : 'users')}
-            className="p-4 px-6 flex justify-between items-center cursor-pointer hover:bg-slate-50/50 transition-colors border-b border-slate-50"
-          >
-            <div className="flex items-center gap-4">
-              <div className="w-10 h-10 bg-brand-50 rounded-xl flex items-center justify-center text-brand-600 shadow-sm"><i className="ph ph-users-three text-2xl"></i></div>
-              <div>
-                <h3 className="text-sm font-black text-slate-800 uppercase italic">Equipe e Vendedores</h3>
-                <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">{users.length} Colaboradores Cadastrados</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-4">
-               <button onClick={(e) => { e.stopPropagation(); openUserModal(); }} className="px-3 py-1.5 bg-brand-500 text-white rounded-lg text-[9px] font-black uppercase hover:bg-brand-600 transition-all shadow-md">+ Novo Membro</button>
-               <i className="ph ph-caret-down text-slate-400 transition-transform" style={{ transform: expandedSection === 'users' ? 'rotate(180deg)' : 'rotate(0deg)' }}></i>
+               <button 
+                 onClick={() => { setEditingUser(null); setIsTaskModalOpen(true); }} 
+                 className="bg-brand-500 hover:bg-brand-600 text-white px-8 py-3 rounded-2xl font-black text-xs uppercase shadow-lg shadow-brand-500/20 transition-all active:scale-95"
+               >
+                 + Atribuir Nova Missão
+               </button>
             </div>
           </div>
+        )}
 
-          {expandedSection === 'users' && (
-            <div className="p-4 animate-in slide-in-from-top-2 duration-300">
-               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                 {users.map(u => (
-                   <div key={u.id} className="p-4 bg-white border border-slate-100 rounded-2xl shadow-sm hover:border-brand-500 transition-all flex flex-col gap-3 relative overflow-hidden">
-                      <div className="flex items-center gap-3">
-                         <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 font-bold text-xs">{u.name.charAt(0)}</div>
-                         <div className="min-w-0">
-                           <p className="text-xs font-bold text-slate-800 uppercase truncate">{u.name}</p>
-                           <span className={`text-[8px] font-black uppercase px-1.5 py-0.5 rounded ${u.role === 'admin' ? 'bg-purple-100 text-purple-600' : 'bg-blue-100 text-blue-600'}`}>{u.role}</span>
-                         </div>
-                      </div>
-                      <button onClick={() => openUserModal(u)} className="w-full py-1.5 bg-slate-50 text-slate-400 hover:bg-brand-500 hover:text-white rounded-lg text-[9px] font-black uppercase transition-all flex items-center justify-center gap-1.5">
-                        <i className="ph ph-lock-key"></i> Alterar Acesso
-                      </button>
-                   </div>
-                 ))}
-               </div>
-            </div>
-          )}
-        </div>
-
-        {/* Section 3: Acerto de Comissões */}
-        <div className={`bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden transition-all duration-300 ${expandedSection === 'commissions' ? 'flex-1' : 'h-auto'}`}>
-          <div 
-            onClick={() => setExpandedSection(expandedSection === 'commissions' ? null : 'commissions')}
-            className="p-4 px-6 flex justify-between items-center cursor-pointer hover:bg-slate-50/50 transition-colors border-b border-slate-50"
-          >
-            <div className="flex items-center gap-4">
-              <div className="w-10 h-10 bg-brand-50 rounded-xl flex items-center justify-center text-brand-600 shadow-sm"><i className="ph ph-hand-coins text-2xl"></i></div>
-              <div>
-                <h3 className="text-sm font-black text-slate-800 uppercase italic">Acerto de Comissões</h3>
-                <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Relatório Financeiro de Desempenho</p>
-              </div>
-            </div>
-            <i className="ph ph-caret-down text-slate-400 transition-transform" style={{ transform: expandedSection === 'commissions' ? 'rotate(180deg)' : 'rotate(0deg)' }}></i>
-          </div>
-
-          {expandedSection === 'commissions' && (
-            <div className="p-0 animate-in slide-in-from-top-2 duration-300 overflow-x-auto">
-              <table className="w-full text-left border-collapse">
-                <thead className="bg-slate-50 border-b border-slate-100">
-                  <tr className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                    <th className="px-6 py-3">Data</th>
-                    <th className="px-6 py-3">Vendedor</th>
-                    <th className="px-6 py-3">Referência</th>
-                    <th className="px-6 py-3 text-right">Comissão</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-50">
-                  {commissions.length === 0 ? (
-                    <tr><td colSpan={4} className="py-10 text-center text-slate-300 font-bold uppercase text-[10px]">Sem dados para o período</td></tr>
-                  ) : commissions.map(c => (
-                    <tr key={c.id} className="hover:bg-slate-50 transition-colors">
-                      <td className="px-6 py-3 text-[10px] text-slate-500 font-medium">{new Date(c.created_at).toLocaleDateString('pt-BR')}</td>
-                      <td className="px-6 py-3 text-xs font-bold text-slate-700 uppercase">{c.vendedor}</td>
-                      <td className="px-6 py-3 text-[10px] font-mono text-slate-400">ID: {c.sale_id.substring(0,8)}</td>
-                      <td className="px-6 py-3 text-right font-mono font-bold text-brand-600 text-xs">R$ {c.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-
-        {/* Section 4: Central de Missões & Tarefas */}
-        <div className={`bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden transition-all duration-300 ${expandedSection === 'missions' ? 'flex-1' : 'h-auto'}`}>
-          <div 
-            onClick={() => setExpandedSection(expandedSection === 'missions' ? null : 'missions')}
-            className="p-4 px-6 flex justify-between items-center cursor-pointer hover:bg-slate-50/50 transition-colors border-b border-slate-50"
-          >
+        {/* SECTION: MISSIONS LIST (Always Visible) */}
+        <div className={`bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden mb-4 ${expandedSection === 'missions' ? 'h-auto' : 'h-[72px]'}`}>
+          <div onClick={() => setExpandedSection(expandedSection === 'missions' ? null : 'missions')} className="p-4 px-6 flex justify-between items-center cursor-pointer bg-slate-50/50 border-b border-slate-50">
             <div className="flex items-center gap-4">
               <div className="w-10 h-10 bg-slate-900 rounded-xl flex items-center justify-center text-brand-400 shadow-sm"><i className="ph ph-shield-check text-2xl"></i></div>
               <div>
-                <h3 className="text-sm font-black text-slate-800 uppercase italic">Centro de Missões & Tarefas</h3>
-                <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">{tasks.filter(t => t.status === 'pending').length} Comandos Aguardando OK</p>
+                <h3 className="text-sm font-black text-slate-800 uppercase italic">Painel de Comandos e Processos</h3>
+                <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">{myTasks.length} Tarefas Aguardando</p>
               </div>
             </div>
-            <div className="flex items-center gap-4">
-               <button onClick={(e) => { e.stopPropagation(); setIsTaskModalOpen(true); }} className="px-3 py-1.5 bg-slate-900 text-white rounded-lg text-[9px] font-black uppercase hover:bg-black transition-all shadow-md">+ Nova Missão</button>
-               <i className="ph ph-caret-down text-slate-400 transition-transform" style={{ transform: expandedSection === 'missions' ? 'rotate(180deg)' : 'rotate(0deg)' }}></i>
-            </div>
+            <i className={`ph ph-caret-down text-slate-400 transition-transform ${expandedSection === 'missions' ? 'rotate-180' : ''}`}></i>
           </div>
-
           {expandedSection === 'missions' && (
-            <div className="p-4 animate-in slide-in-from-top-2 duration-300">
-               <div className="space-y-2">
-                  {tasks.length === 0 ? (
-                    <div className="py-10 text-center text-slate-300 font-bold uppercase text-[10px]">Nenhuma missão atribuída à rede</div>
-                  ) : tasks.map(t => {
-                    const targetName = t.assignee_type === 'store' 
-                      ? stores.find(s => s.id === t.assignee_id)?.name || 'LOJA DESCONHECIDA'
-                      : users.find(u => u.id === t.assignee_id)?.name || 'VENDEDOR DESCONHECIDO';
-
-                    return (
-                      <div key={t.id} className={`p-4 rounded-2xl border transition-all flex items-center justify-between group ${t.status === 'completed' ? 'bg-slate-50/50 border-slate-100 opacity-60' : 'bg-white border-slate-200 hover:border-brand-500 shadow-sm'}`}>
-                        <div className="flex items-center gap-4 flex-1">
-                           <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-xl ${t.status === 'completed' ? 'bg-emerald-50 text-emerald-500' : 'bg-slate-100 text-slate-400'}`}>
-                             <i className={t.status === 'completed' ? 'ph ph-check-circle' : 'ph ph-circle-dashed animate-spin-slow'}></i>
-                           </div>
-                           <div className="min-w-0 flex-1">
-                              <p className={`text-sm font-bold uppercase truncate ${t.status === 'completed' ? 'text-slate-400 line-through' : 'text-slate-800'}`}>{t.title}</p>
-                              <div className="flex items-center gap-3 mt-0.5">
-                                 <span className={`text-[8px] font-black uppercase px-1.5 py-0.5 rounded ${t.assignee_type === 'store' ? 'bg-orange-100 text-orange-600' : 'bg-blue-100 text-blue-600'}`}>
-                                   {t.assignee_type === 'store' ? 'Loja: ' : 'Indiv: '} {targetName}
-                                 </span>
-                                 {t.due_date && <span className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter italic">Prazo: {t.due_date}</span>}
-                              </div>
-                           </div>
-                        </div>
-                        <button 
-                          onClick={() => toggleTaskStatus(t.id, t.status)}
-                          className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all shadow-md active:scale-95 ${t.status === 'completed' ? 'bg-slate-200 text-slate-500' : 'bg-brand-500 text-white hover:bg-brand-600'}`}
-                        >
-                          {t.status === 'completed' ? 'REABRIR' : 'DAR OK'}
-                        </button>
-                      </div>
-                    );
-                  })}
-               </div>
+            <div className="p-4 space-y-2 animate-in slide-in-from-top-1">
+               {myTasks.length === 0 ? <p className="text-center py-10 text-slate-300 font-bold uppercase text-[10px]">Operação em dia na sua estação</p> : myTasks.map(t => (
+                 <div key={t.id} className={`p-4 rounded-2xl border flex items-center justify-between transition-all ${t.status === 'completed' ? 'opacity-40 bg-slate-50' : 'bg-white border-slate-200 hover:border-brand-500 shadow-sm'}`}>
+                    <div className="flex-1 min-w-0">
+                       <div className="flex items-center gap-2">
+                          <p className="text-sm font-bold uppercase text-slate-800 truncate">{t.title}</p>
+                          {t.is_routine === 1 && <span className="text-[7px] font-black bg-purple-100 text-purple-600 px-1.5 py-0.5 rounded">DIÁRIO</span>}
+                          {t.proof_required === 1 && <span className="text-[7px] font-black bg-orange-100 text-orange-600 px-1.5 py-0.5 rounded">FOTO</span>}
+                       </div>
+                       <p className="text-[9px] text-slate-400 font-bold uppercase mt-1 italic">Prazo: {t.due_date || 'Imediato'}</p>
+                       {t.justification && <p className="text-[9px] text-orange-600 font-medium italic mt-2">Justificativa: "{t.justification}"</p>}
+                    </div>
+                    <div className="flex gap-2">
+                      {currentUser?.role === 'admin' && (
+                        <button onClick={(e) => { e.stopPropagation(); handleDeleteTask(t.id); }} className="p-2 text-slate-300 hover:text-red-500 transition-colors"><i className="ph ph-trash text-xl"></i></button>
+                      )}
+                      <button onClick={() => t.status === 'pending' ? setSelectedTask(t) : toggleTaskStatus(t.id, t.status)} className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${t.status === 'completed' ? 'bg-slate-200 text-slate-500' : 'bg-brand-500 text-white shadow-lg'}`}>
+                        {t.status === 'completed' ? 'REABRIR' : 'OK'}
+                      </button>
+                    </div>
+                 </div>
+               ))}
             </div>
           )}
         </div>
 
+        {/* SECTION: MANAGEMENT (ADMIN ONLY) */}
+        {currentUser?.role === 'admin' && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Lojas */}
+            <div className={`bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden transition-all ${expandedSection === 'stores' ? 'h-auto' : 'h-[72px]'}`}>
+              <div onClick={() => setExpandedSection(expandedSection === 'stores' ? null : 'stores')} className="p-4 px-6 flex justify-between items-center cursor-pointer bg-slate-50/50">
+                <div className="flex items-center gap-4">
+                  <div className="w-10 h-10 bg-brand-50 rounded-xl flex items-center justify-center text-brand-600 shadow-sm"><i className="ph ph-buildings text-2xl"></i></div>
+                  <h3 className="text-xs font-black text-slate-800 uppercase italic">Unidades</h3>
+                </div>
+                <button onClick={(e) => { e.stopPropagation(); setEditingStore(null); setStoreName(''); setIsStoreModalOpen(true); }} className="p-2 text-brand-500 hover:bg-brand-50 rounded-lg"><i className="ph ph-plus-circle text-2xl"></i></button>
+              </div>
+              {expandedSection === 'stores' && (
+                <div className="p-4 space-y-2">
+                   {stores.map(s => (
+                     <div key={s.id} className={`p-3 bg-slate-50 border rounded-xl flex justify-between items-center transition-all ${s.archived ? 'opacity-40 grayscale' : 'hover:border-brand-300'}`}>
+                        <span className="text-xs font-bold uppercase">{s.name}</span>
+                        <div className="flex gap-1">
+                          <button onClick={() => { setEditingStore(s); setStoreName(s.name); setIsStoreModalOpen(true); }} className="p-1 text-slate-400 hover:text-brand-600"><i className="ph ph-pencil-simple"></i></button>
+                          <button onClick={() => handleArchiveStore(s)} className={`p-1 ${s.archived ? 'text-emerald-500' : 'text-red-400'}`}><i className="ph ph-archive"></i></button>
+                        </div>
+                     </div>
+                   ))}
+                </div>
+              )}
+            </div>
+
+            {/* Equipe */}
+            <div className={`bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden transition-all ${expandedSection === 'users' ? 'h-auto' : 'h-[72px]'}`}>
+              <div onClick={() => setExpandedSection(expandedSection === 'users' ? null : 'users')} className="p-4 px-6 flex justify-between items-center cursor-pointer bg-slate-50/50">
+                <div className="flex items-center gap-4">
+                  <div className="w-10 h-10 bg-brand-50 rounded-xl flex items-center justify-center text-brand-600 shadow-sm"><i className="ph ph-users-three text-2xl"></i></div>
+                  <h3 className="text-xs font-black text-slate-800 uppercase italic">Equipe</h3>
+                </div>
+                <button onClick={(e) => { e.stopPropagation(); setEditingUser(null); setUserName(''); setUserPassword(''); setUserRole('vendedor'); setIsUserModalOpen(true); }} className="p-2 text-brand-500 hover:bg-brand-50 rounded-lg"><i className="ph ph-plus-circle text-2xl"></i></button>
+              </div>
+              {expandedSection === 'users' && (
+                <div className="p-4 space-y-2">
+                   {users.map(u => (
+                     <div key={u.id} className="p-3 bg-slate-50 border rounded-xl flex justify-between items-center">
+                        <span className="text-xs font-bold uppercase">{u.name}</span>
+                        <button onClick={() => { setEditingUser(u); setUserName(u.name); setUserPassword(u.password); setUserRole(u.role); setIsUserModalOpen(true); }} className="p-1 text-slate-400 hover:text-brand-600"><i className="ph ph-pencil-simple"></i></button>
+                     </div>
+                   ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </main>
 
-      {/* Store Modal */}
-      {isStoreModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[250] flex items-center justify-center p-4">
-          <div className="bg-white rounded-[2rem] shadow-2xl max-w-md w-full overflow-hidden animate-in zoom-in duration-200">
-            <div className="p-5 bg-brand-500 text-white flex justify-between items-center">
-               <h3 className="font-black uppercase italic text-lg">{editingStore ? 'Editar Unidade' : 'Nova Loja'}</h3>
-               <button onClick={() => setIsStoreModalOpen(false)}><i className="ph ph-x text-2xl"></i></button>
-            </div>
-            <form onSubmit={handleSaveStore} className="p-8 space-y-6">
-               <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nome Comercial</label>
-                  <input value={storeName} onChange={e => setStoreName(e.target.value)} placeholder="EX: LOJA MATRIZ" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold uppercase text-slate-700 outline-none focus:border-brand-500" />
-               </div>
-               <button type="submit" className="w-full py-4 bg-slate-900 text-white font-black rounded-2xl shadow-xl hover:bg-black uppercase text-xs tracking-widest">Gravar Unidade</button>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* User Modal */}
-      {isUserModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[250] flex items-center justify-center p-4">
-          <div className="bg-white rounded-[2rem] shadow-2xl max-w-md w-full overflow-hidden animate-in zoom-in duration-200">
-            <div className="p-5 bg-brand-500 text-white flex justify-between items-center">
-               <h3 className="font-black uppercase italic text-lg">{editingUser ? 'Editar Acesso' : 'Novo Vendedor'}</h3>
-               <button onClick={() => setIsUserModalOpen(false)}><i className="ph ph-x text-2xl"></i></button>
-            </div>
-            <form onSubmit={handleSaveUser} className="p-8 space-y-4">
-               <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nome do Operador</label>
-                  <input value={userName} onChange={e => setUserName(e.target.value)} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold uppercase text-xs" />
-               </div>
-               <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Senha de Acesso</label>
-                  <input type="password" value={userPassword} onChange={e => setUserPassword(e.target.value)} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-xs" />
-               </div>
-               <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Cargo / Nível</label>
-                  <select value={userRole} onChange={e => setUserRole(e.target.value)} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold uppercase text-xs">
-                    <option value="vendedor">Vendedor Operador</option>
-                    <option value="admin">Gerente Administrador</option>
-                  </select>
-               </div>
-               <div className="pt-4 flex gap-3">
-                  <button type="button" onClick={() => setIsUserModalOpen(false)} className="flex-1 py-4 text-slate-400 font-bold uppercase text-[10px]">Cancelar</button>
-                  <button type="submit" className="flex-[2] py-4 bg-slate-900 text-white font-black rounded-2xl shadow-xl uppercase text-xs">Salvar Equipe</button>
-               </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Task Modal */}
+      {/* MISSION MODAL */}
       {isTaskModalOpen && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[250] flex items-center justify-center p-4">
-          <div className="bg-white rounded-[2.5rem] shadow-2xl max-w-lg w-full overflow-hidden animate-in zoom-in duration-200">
-            <div className="p-6 bg-slate-900 text-white flex justify-between items-center border-b border-white/10">
-               <div>
-                  <h3 className="font-black uppercase italic text-lg tracking-tight">Atribuir Missão</h3>
-                  <p className="text-[9px] text-brand-400 font-bold uppercase tracking-widest">Comando e Controle de Operação</p>
-               </div>
-               <button onClick={() => setIsTaskModalOpen(false)} className="w-10 h-10 rounded-full hover:bg-white/10 flex items-center justify-center transition-colors"><i className="ph ph-x text-2xl"></i></button>
+          <div className="bg-white rounded-[2.5rem] shadow-2xl max-w-lg w-full overflow-hidden animate-in zoom-in">
+            <div className="p-6 bg-slate-900 text-white flex justify-between items-center">
+               <h3 className="font-black uppercase italic tracking-tight text-lg">Definir Missão</h3>
+               <button onClick={() => setIsTaskModalOpen(false)} className="w-10 h-10 rounded-full hover:bg-white/10 flex items-center justify-center"><i className="ph ph-x text-2xl"></i></button>
             </div>
-            <form onSubmit={handleSaveTask} className="p-8 space-y-6 bg-slate-50/30">
-               <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">O que deve ser feito? (Título)</label>
-                  <input value={taskTitle} onChange={e => setTaskTitle(e.target.value)} placeholder="EX: ENVIAR RELATÓRIO DE CAIXA" className="w-full p-4 bg-white border border-slate-200 rounded-2xl font-bold uppercase text-slate-700 outline-none focus:border-brand-500 shadow-inner" />
-               </div>
-               
+            <form onSubmit={handleSaveTask} className="p-8 space-y-5">
+               <input value={taskTitle} onChange={e => setTaskTitle(e.target.value)} placeholder="O QUE DEVE SER FEITO? *" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold uppercase outline-none focus:border-brand-500" />
                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Tipo de Alvo</label>
-                    <div className="flex bg-white p-1 rounded-xl border border-slate-200">
-                       <button type="button" onClick={() => setTaskAssigneeType('store')} className={`flex-1 py-2 rounded-lg text-[9px] font-black transition-all ${taskAssigneeType === 'store' ? 'bg-slate-900 text-white shadow-md' : 'text-slate-400'}`}>LOJA</button>
-                       <button type="button" onClick={() => setTaskAssigneeType('user')} className={`flex-1 py-2 rounded-lg text-[9px] font-black transition-all ${taskAssigneeType === 'user' ? 'bg-slate-900 text-white shadow-md' : 'text-slate-400'}`}>EQUIPE</button>
-                    </div>
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Prazo / Horário</label>
-                    <input value={taskDueDate} onChange={e => setTaskDueDate(e.target.value)} placeholder="Ex: Até 15:00" className="w-full p-2.5 bg-white border border-slate-200 rounded-xl font-bold text-xs shadow-inner" />
-                  </div>
-               </div>
-
-               <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Destinatário Específico</label>
-                  <select 
-                    value={taskAssigneeId} 
-                    onChange={e => setTaskAssigneeId(e.target.value)} 
-                    className="w-full p-3 bg-white border border-slate-200 rounded-xl font-bold uppercase text-xs shadow-inner appearance-none"
-                  >
-                    <option value="">SELECIONE...</option>
-                    {taskAssigneeType === 'store' ? (
-                      stores.filter(s => !s.archived).map(s => <option key={s.id} value={s.id}>{s.name}</option>)
-                    ) : (
-                      users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)
-                    )}
+                  <select value={taskAssigneeType} onChange={e => setTaskAssigneeType(e.target.value as any)} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-xs uppercase outline-none">
+                    <option value="store">P/ TODA A LOJA</option><option value="user">P/ VENDEDOR ESPECÍFICO</option>
                   </select>
+                  <input value={taskDueDate} onChange={e => setTaskDueDate(e.target.value)} placeholder="HORÁRIO (Ex: 15:00)" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-xs outline-none" />
                </div>
-
-               <div className="pt-4 flex gap-4">
-                  <button type="button" onClick={() => setIsTaskModalOpen(false)} className="flex-1 py-4 text-slate-400 font-bold uppercase text-[10px] tracking-widest">Descartar</button>
-                  <button type="submit" className="flex-[3] py-4 bg-brand-500 text-white font-black rounded-2xl shadow-xl hover:bg-brand-600 uppercase text-xs tracking-[0.2em] animate-pulse-slow">Atribuir Missão</button>
+               <div className="flex gap-4">
+                  <label className="flex-1 flex items-center gap-2 p-3 bg-slate-50 border border-slate-100 rounded-xl cursor-pointer">
+                    <input type="checkbox" checked={taskIsRoutine} onChange={e => setTaskIsRoutine(e.target.checked)} /><span className="text-[9px] font-black uppercase text-slate-600">Checklist Diário</span>
+                  </label>
+                  <label className="flex-1 flex items-center gap-2 p-3 bg-slate-50 border border-slate-100 rounded-xl cursor-pointer">
+                    <input type="checkbox" checked={taskProofRequired} onChange={e => setTaskProofRequired(e.target.checked)} /><span className="text-[9px] font-black uppercase text-slate-600">Exigir Foto</span>
+                  </label>
                </div>
+               <select value={taskAssigneeId} onChange={e => setTaskAssigneeId(e.target.value)} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold uppercase text-xs">
+                 <option value="">SELECIONE O DESTINATÁRIO... *</option>
+                 {taskAssigneeType === 'store' ? stores.filter(s => !s.archived).map(s => <option key={s.id} value={s.id}>{s.name}</option>) : users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+               </select>
+               <button type="submit" className="w-full py-4 bg-brand-500 text-white font-black rounded-2xl shadow-xl hover:bg-brand-600 uppercase text-xs transition-all">ATRIBUIR MISSÃO</button>
             </form>
           </div>
         </div>
       )}
 
+      {/* STORE MODAL */}
+      {isStoreModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[250] flex items-center justify-center p-4">
+          <div className="bg-white rounded-[2rem] shadow-2xl max-w-md w-full overflow-hidden">
+            <div className="p-5 bg-brand-500 text-white flex justify-between items-center"><h3 className="font-black uppercase italic text-lg">{editingStore ? 'Editar Unidade' : 'Nova Loja'}</h3><button onClick={() => setIsStoreModalOpen(false)}><i className="ph ph-x text-2xl"></i></button></div>
+            <form onSubmit={handleSaveStore} className="p-8 space-y-6">
+               <input value={storeName} onChange={e => setStoreName(e.target.value)} placeholder="NOME DA LOJA" className="w-full p-4 bg-slate-50 border rounded-2xl font-bold uppercase" />
+               <button type="submit" className="w-full py-4 bg-slate-900 text-white font-black rounded-2xl">Gravar Unidade</button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* USER MODAL */}
+      {isUserModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[250] flex items-center justify-center p-4">
+          <div className="bg-white rounded-[2rem] shadow-2xl max-w-md w-full overflow-hidden">
+            <div className="p-5 bg-brand-500 text-white flex justify-between items-center"><h3 className="font-black uppercase italic text-lg">{editingUser ? 'Editar Acesso' : 'Novo Vendedor'}</h3><button onClick={() => setIsUserModalOpen(false)}><i className="ph ph-x text-2xl"></i></button></div>
+            <form onSubmit={handleSaveUser} className="p-8 space-y-4">
+               <input value={userName} onChange={e => setUserName(e.target.value)} placeholder="NOME" className="w-full p-3 bg-slate-50 border rounded-xl font-bold uppercase" />
+               <input type="password" value={userPassword} onChange={e => setUserPassword(e.target.value)} placeholder="SENHA" className="w-full p-3 bg-slate-50 border rounded-xl font-bold" />
+               <select value={userRole} onChange={e => setUserRole(e.target.value)} className="w-full p-3 bg-slate-50 border rounded-xl font-bold uppercase"><option value="vendedor">Vendedor</option><option value="admin">Gerente</option></select>
+               <button type="submit" className="w-full py-4 bg-slate-900 text-white font-black rounded-2xl">Salvar Equipe</button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      <TaskCompletionModal isOpen={!!selectedTask} onClose={() => setSelectedTask(null)} onConfirm={handleConfirmCompletion} task={selectedTask} />
     </div>
   );
 };
