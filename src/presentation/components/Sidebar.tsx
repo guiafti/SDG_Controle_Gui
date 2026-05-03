@@ -53,6 +53,14 @@ const Sidebar: React.FC<SidebarProps> = ({ activeView, onSwitchView, onOpenPDV, 
         </button>
 
         <button 
+          onClick={() => onSwitchView('analytics')}
+          className={`nav-btn w-full flex items-center gap-3 px-4 py-2.5 rounded-xl font-bold text-xs transition-all ${activeView === 'analytics' ? 'bg-white/10 text-white border border-white/5 shadow-inner' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
+        >
+          <i className="ph ph-strategy text-xl"></i>
+          Análise Preditiva
+        </button>
+
+        <button 
           onClick={() => onSwitchView('inventory')}
           className={`nav-btn w-full flex items-center gap-3 px-4 py-2.5 rounded-xl font-bold text-xs transition-all ${activeView === 'inventory' ? 'bg-white/10 text-white border border-white/5 shadow-inner' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
         >

@@ -11,8 +11,8 @@ const Inventory: React.FC<InventoryProps> = ({ role }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [showArchived, setShowArchived] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   const [editingProduct, setEditingProduct] = useState<any>(null);
-  const [viewMode, setViewMode] = useState<'list' | 'grid'>('grid');
 
   const [formName, setFormName] = useState('');
   const [formBarcode, setFormBarcode] = useState('');
@@ -42,15 +42,10 @@ const Inventory: React.FC<InventoryProps> = ({ role }) => {
     p.barcode.includes(searchTerm))
   );
 
-  // Predictive Analytics Stats
   const stats = {
     total: filteredProducts.length,
     critical: filteredProducts.filter(p => {
         return stores.some(s => (p.stocks?.[s.id] || 0) <= (p.minStocks?.[s.id] ?? 2));
-    }).length,
-    stale: filteredProducts.filter(p => {
-        // Here we'd ideally check last sale date, but using the indicator for demo
-        return false; // Placeholder for logic
     }).length,
     highValue: filteredProducts.filter(p => p.price > 500).length
   };
@@ -88,7 +83,6 @@ const Inventory: React.FC<InventoryProps> = ({ role }) => {
 
   const handleArchive = async () => {
     if (!editingProduct) return;
-    const action = showArchived ? 'Restaurar' : 'Arquivar';
     const result = await window.api.archiveProduct({ id: editingProduct.id, archived: !showArchived });
     if (result.success) {
       toast.success(showArchived ? 'Produto restaurado!' : 'Produto arquivado!');
@@ -134,15 +128,57 @@ const Inventory: React.FC<InventoryProps> = ({ role }) => {
     } catch (error) { toast.error('ERRO DE COMUNICAÇÃO', { id: loadingId }); }
   };
 
+  const [selectedStore, setSelectedStore] = useState('1');
+
+  const handleImportClick = () => fileInputRef.current?.click();
+  const onFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async (event: any) => {
+      const xmlData = event.target.result;
+      try {
+        const result = await window.api.importXmlProducts(xmlData, selectedStore);
+        toast.success(`SUCESSO!\nNovos: ${result.newProducts}\nEstoques: ${result.stockUpdates}`);
+        fetchData();
+      } catch (error) {
+        toast.error('ERRO: Verifique o formato do XML.');
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  };
+
   return (
     <div className="flex-1 flex flex-col h-full bg-slate-50 overflow-hidden">
       <main className="p-4 md:p-6 space-y-4 flex-1 overflow-y-auto custom-scrollbar">
         
         {/* Compact Header */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-2">
-          <div>
-            <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Controle de Estoque</h1>
-            <p className="text-slate-500 font-medium text-xs mt-0.5">Gestão de Inventário e Análise Multiloja</p>
+          <div className="flex items-center gap-4">
+            <div>
+              <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Centro de Distribuição</h1>
+              <p className="text-slate-500 font-medium text-xs mt-0.5 uppercase tracking-widest">Gestão de Inventário Multiloja</p>
+            </div>
+            
+            {/* Guardian Protocol Inline */}
+            <div className="hidden lg:flex items-center gap-2 bg-white p-1 rounded-xl border border-slate-200 shadow-sm ml-4">
+              <select 
+                value={selectedStore} 
+                onChange={(e) => setSelectedStore(e.target.value)}
+                className="bg-transparent text-[10px] font-bold outline-none px-2 uppercase"
+              >
+                {stores.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </select>
+              <input type="file" ref={fileInputRef} onChange={onFileChange} accept=".xml" className="hidden" />
+              <button 
+                onClick={handleImportClick}
+                className="bg-slate-900 text-white px-3 py-1.5 rounded-lg font-bold text-[9px] hover:bg-black flex items-center gap-1.5 transition-all"
+              >
+                <i className="ph ph-file-arrow-up"></i>
+                IMPORTAR XML
+              </button>
+            </div>
           </div>
           
           <div className="flex items-center gap-2">
@@ -156,160 +192,161 @@ const Inventory: React.FC<InventoryProps> = ({ role }) => {
                 onClick={() => openModal()}
                 className="bg-brand-500 text-white px-5 py-2.5 rounded-xl font-bold text-sm flex items-center gap-2 hover:bg-brand-600 shadow-md shadow-brand-500/20 transition-all"
             >
-                <i className="ph ph-plus-circle text-xl"></i> Novo Produto
+                <i className="ph ph-plus-circle text-xl"></i> Adicionar Item
             </button>
           </div>
         </div>
 
-        {/* Compact Stats */}
         <div className="flex gap-3 overflow-x-auto no-scrollbar pb-2">
             <div className="flex-none bg-white px-4 py-2 rounded-xl shadow-sm border border-slate-100 flex items-center gap-3">
-                <div className="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center text-slate-500"><i className="ph ph-list-numbers text-lg"></i></div>
+                <div className="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center text-slate-500"><i className="ph ph-barcode text-lg"></i></div>
                 <div>
                     <div className="text-xs font-bold text-slate-800">{stats.total}</div>
-                    <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Total Itens</div>
+                    <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">SKUs Únicos</div>
                 </div>
             </div>
-            <div className={`flex-none bg-white px-4 py-2 rounded-xl shadow-sm border border-slate-100 flex items-center gap-3 transition-all ${stats.critical > 0 ? 'border-l-4 border-l-red-500' : ''}`}>
+            <div className={`flex-none bg-white px-4 py-2 rounded-xl shadow-sm border border-slate-100 flex items-center gap-3 transition-all ${stats.critical > 0 ? 'border-l-4 border-l-red-500 shadow-red-500/5' : ''}`}>
                 <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-lg ${stats.critical > 0 ? 'bg-red-50 text-red-500' : 'bg-slate-100 text-slate-400'}`}>
                     <i className="ph ph-warning-octagon"></i>
                 </div>
                 <div>
                     <div className={`text-xs font-bold ${stats.critical > 0 ? 'text-red-600' : 'text-slate-800'}`}>{stats.critical}</div>
-                    <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Estoque Crítico</div>
-                </div>
-            </div>
-            <div className="flex-none bg-white px-4 py-2 rounded-xl shadow-sm border border-slate-100 flex items-center gap-3">
-                <div className="w-8 h-8 bg-brand-50 rounded-lg flex items-center justify-center text-brand-500"><i className="ph ph-currency-dollar text-lg"></i></div>
-                <div>
-                    <div className="text-xs font-bold text-slate-800">{stats.highValue}</div>
-                    <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Alto Valor</div>
+                    <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Reposição Crítica</div>
                 </div>
             </div>
             <div className="flex-none bg-slate-900 px-5 py-2 rounded-xl shadow-md flex items-center gap-3">
-                <div className="w-8 h-8 bg-white/10 rounded-lg flex items-center justify-center text-brand-400"><i className="ph ph-chart-line-up text-lg"></i></div>
+                <div className="w-8 h-8 bg-white/10 rounded-lg flex items-center justify-center text-brand-400"><i className="ph ph-sparkle text-lg"></i></div>
                 <div>
-                    <div className="text-xs font-bold text-white italic">Ativa</div>
-                    <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Inteligência</div>
+                    <div className="text-xs font-bold text-white italic">Inteligência</div>
+                    <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Análise de Giro</div>
                 </div>
             </div>
         </div>
 
-        {/* Filters & View Mode */}
-        <div className="flex flex-col md:flex-row gap-3">
-            <div className="flex-1 relative">
-                <i className="ph ph-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-lg"></i>
-                <input 
-                    type="text" placeholder="Localizar por nome, EAN ou características..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
-                    className="w-full bg-white border border-slate-200 rounded-xl py-2 pl-11 pr-4 outline-none focus:ring-2 ring-brand-500/10 transition-all text-sm font-medium text-slate-700 shadow-sm"
-                />
-            </div>
-            <div className="flex bg-white p-1 rounded-xl shadow-sm border border-slate-200 shrink-0">
-                <button onClick={() => setViewMode('grid')} className={`px-4 py-1.5 rounded-lg flex items-center gap-2 text-[10px] font-bold transition-all ${viewMode === 'grid' ? 'bg-brand-500 text-white shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}>
-                    <i className="ph ph-squares-four text-base"></i> Galeria
-                </button>
-                <button onClick={() => setViewMode('list')} className={`px-4 py-1.5 rounded-lg flex items-center gap-2 text-[10px] font-bold transition-all ${viewMode === 'list' ? 'bg-brand-500 text-white shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}>
-                    <i className="ph ph-list-bullets text-base"></i> Lista
-                </button>
-            </div>
+        <div className="relative">
+          <i className="ph ph-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-lg"></i>
+          <input 
+            type="text" placeholder="Localizar produto por nome, EAN ou categoria..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
+            className="w-full bg-white border border-slate-200 rounded-xl py-2.5 pl-11 pr-4 outline-none focus:ring-2 ring-brand-500/10 transition-all text-sm font-medium text-slate-700 shadow-sm"
+          />
         </div>
 
-        {/* Product Display */}
-        {viewMode === 'grid' ? (
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 pb-4">
-                {filteredProducts.map(p => {
-                    const isLow = stores.some(s => (p.stocks?.[s.id] || 0) <= (p.minStocks?.[s.id] ?? 2));
-                    return (
-                        <div 
-                            key={p.id} onClick={() => openModal(p)}
-                            className={`bg-white rounded-2xl p-3 border transition-all group cursor-pointer relative ${isLow ? 'border-red-100 hover:border-red-200 shadow-sm hover:shadow-red-500/5' : 'border-slate-100 hover:border-slate-200 shadow-sm hover:shadow-md'}`}
-                        >
-                            <div className="aspect-square bg-slate-50 rounded-xl overflow-hidden mb-2 border border-slate-100">
-                                {p.image ? (
-                                    <img src={`local-img://${p.image}`} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" alt={p.name} />
-                                ) : (
-                                    <div className="w-full h-full flex items-center justify-center text-slate-200">
-                                        <i className="ph ph-package text-4xl"></i>
-                                    </div>
-                                )}
-                            </div>
-                            <div className="space-y-1">
-                                <span className="text-[8px] font-bold text-slate-400 uppercase tracking-wider block">#{p.barcode}</span>
-                                <h4 className="text-[11px] font-bold text-slate-800 uppercase line-clamp-2 leading-tight h-7">{p.name}</h4>
-                                <div className="flex justify-between items-center mt-2 pt-2 border-t border-slate-50">
-                                    <span className="text-xs font-bold text-brand-600 font-mono">
-                                        R$ {Number(p.price).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                                    </span>
-                                    <div className="flex -space-x-1.5">
-                                        {stores.slice(0, 3).map(s => {
-                                            const qty = p.stocks?.[s.id] || 0;
-                                            const low = qty <= (p.minStocks?.[s.id] ?? 2);
-                                            return (
-                                                <div key={s.id} className={`w-5 h-5 rounded-full border border-white flex items-center justify-center text-[8px] font-bold shadow-sm ${low ? 'bg-red-500 text-white' : 'bg-slate-200 text-slate-600'}`}>
-                                                    {qty}
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
-                            </div>
-                            {isLow && (
-                                <div className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border border-white shadow-sm animate-pulse"></div>
-                            )}
+        <div className="space-y-2 pb-10">
+          {filteredProducts.length === 0 ? (
+            <div className="py-32 text-center bg-white rounded-2xl border border-slate-100 opacity-40">
+              <i className="ph ph-package text-6xl mb-2"></i>
+              <p className="text-sm font-bold uppercase">Nenhum produto localizado</p>
+            </div>
+          ) : (
+            filteredProducts.map(p => {
+              const isExpanded = expandedId === p.id;
+              const isLow = stores.some(s => (p.stocks?.[s.id] || 0) <= (p.minStocks?.[s.id] ?? 2));
+              
+              return (
+                <div 
+                  key={p.id} 
+                  className={`bg-white rounded-xl border transition-all duration-300 overflow-hidden ${isExpanded ? 'ring-2 ring-brand-500/10 border-brand-200 shadow-lg' : 'border-slate-100 hover:border-slate-200 shadow-sm'}`}
+                >
+                  <div 
+                    onClick={() => setExpandedId(isExpanded ? null : p.id)}
+                    className="p-3 cursor-pointer flex items-center gap-4 hover:bg-slate-50/50 transition-colors"
+                  >
+                    <div className="w-10 h-10 rounded-lg bg-slate-50 flex-none flex items-center justify-center text-slate-400 overflow-hidden border border-slate-100">
+                      {p.image ? (
+                        <img src={`local-img://${p.image}`} className="w-full h-full object-cover" alt="" />
+                      ) : (
+                        <i className="ph ph-package text-xl"></i>
+                      )}
+                    </div>
+
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <span className="text-[9px] font-mono font-bold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded uppercase">#{p.barcode}</span>
+                        <h3 className="text-xs font-bold text-slate-800 truncate uppercase tracking-tight">{p.name}</h3>
+                      </div>
+                      <div className="flex items-center gap-3 text-[10px] text-slate-400 font-medium">
+                        <span className="flex items-center gap-1 font-bold text-emerald-600">R$ {Number(p.price).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                        <span className="text-slate-300">•</span>
+                        <div className="flex gap-1.5">
+                          {stores.slice(0, 3).map(s => {
+                            const qty = p.stocks?.[s.id] || 0;
+                            const low = qty <= (p.minStocks?.[s.id] ?? 2);
+                            return (
+                              <span key={s.id} className={`text-[8px] font-black uppercase ${low ? 'text-red-500' : 'text-slate-400'}`}>
+                                {s.name.substring(0, 3)}: {qty}
+                              </span>
+                            );
+                          })}
                         </div>
-                    );
-                })}
-            </div>
-        ) : (
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-                <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse">
-                        <thead className="bg-slate-50 border-b border-slate-100">
-                            <tr>
-                                <th className="px-6 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Produto</th>
-                                <th className="px-6 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Identificação</th>
-                                <th className="px-6 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Estoques</th>
-                                <th className="px-6 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-wider text-right">Preço Base</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-50">
-                            {filteredProducts.map(p => (
-                                <tr key={p.id} onClick={() => openModal(p)} className="hover:bg-slate-50 transition-colors cursor-pointer group">
-                                    <td className="px-6 py-3">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-8 h-8 rounded-lg bg-slate-50 overflow-hidden border border-slate-100 shrink-0">
-                                                {p.image && <img src={`local-img://${p.image}`} className="w-full h-full object-cover" />}
-                                            </div>
-                                            <span className="text-xs font-bold text-slate-700 uppercase truncate max-w-[200px]">{p.name}</span>
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-3">
-                                        <span className="text-[9px] font-mono font-bold text-slate-400 bg-slate-50 px-2 py-0.5 rounded border border-slate-100">#{p.barcode}</span>
-                                    </td>
-                                    <td className="px-6 py-3">
-                                        <div className="flex gap-1.5">
-                                            {stores.map(s => {
-                                                const qty = p.stocks?.[s.id] || 0;
-                                                const isLow = qty <= (p.minStocks?.[s.id] ?? 2);
-                                                return (
-                                                    <div key={s.id} className={`px-2 py-0.5 rounded flex items-center gap-1.5 border ${isLow ? 'bg-red-50 border-red-100 text-red-600' : 'bg-slate-50 border-slate-100 text-slate-500'}`}>
-                                                        <span className="text-[8px] font-bold uppercase opacity-60">{s.name.substring(0, 3)}</span>
-                                                        <span className="text-[10px] font-bold">{qty}</span>
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-3 text-right">
-                                        <span className="text-sm font-bold text-emerald-600 font-mono">R$ {Number(p.price).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
+                      </div>
+                    </div>
+
+                    {isLow && (
+                      <div className="hidden md:flex items-center gap-1.5 px-3 py-1 bg-red-50 text-red-500 rounded-lg border border-red-100 animate-pulse">
+                        <i className="ph ph-warning-octagon text-sm"></i>
+                        <span className="text-[9px] font-black uppercase">Reposição</span>
+                      </div>
+                    )}
+
+                    <button className="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:bg-slate-100 transition-transform duration-300" style={{ transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)' }}>
+                      <i className="ph ph-caret-down text-lg"></i>
+                    </button>
+                  </div>
+
+                  {isExpanded && (
+                    <div className="px-3 pb-3 pt-1 border-t border-slate-50 bg-slate-50/30 animate-in slide-in-from-top-2 duration-200">
+                      <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+                        <div className="md:col-span-8 bg-white p-3 rounded-xl border border-slate-100">
+                          <h4 className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+                            <i className="ph ph-buildings"></i> Estoque por Unidade
+                          </h4>
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                            {stores.map(s => {
+                              const qty = p.stocks?.[s.id] || 0;
+                              const min = p.minStocks?.[s.id] ?? 2;
+                              const low = qty <= min;
+                              return (
+                                <div key={s.id} className={`p-2 rounded-lg border flex flex-col items-center justify-center ${low ? 'bg-red-50/50 border-red-100' : 'bg-slate-50/30 border-slate-100'}`}>
+                                  <span className="text-[8px] font-black text-slate-400 uppercase mb-1">{s.name}</span>
+                                  <div className="flex items-baseline gap-1">
+                                    <span className={`text-sm font-bold ${low ? 'text-red-600' : 'text-slate-700'}`}>{qty}</span>
+                                    <span className="text-[8px] text-slate-300 font-bold">/ min {min}</span>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        <div className="md:col-span-4 flex flex-col gap-2">
+                          <button 
+                            onClick={() => openModal(p)}
+                            className="flex-1 bg-brand-500 text-white p-3 rounded-xl shadow-md hover:bg-brand-600 flex items-center justify-center gap-2 text-[10px] font-bold uppercase transition-all"
+                          >
+                            <i className="ph ph-pencil-simple-line text-lg"></i> Ajustar Produto
+                          </button>
+                          <div className="flex gap-2">
+                            <button 
+                              className="flex-1 bg-white border border-slate-200 text-slate-600 p-2.5 rounded-xl hover:bg-slate-50 flex items-center justify-center gap-1.5 text-[9px] font-bold uppercase transition-all"
+                            >
+                              <i className="ph ph-barcode text-base"></i> Etiqueta
+                            </button>
+                            <button 
+                              onClick={() => { setEditingProduct(p); handleArchive(); }}
+                              className="flex-1 bg-orange-50 text-orange-600 border border-orange-100 p-2.5 rounded-xl hover:bg-orange-100 flex items-center justify-center gap-1.5 text-[9px] font-bold uppercase transition-all"
+                            >
+                              <i className="ph ph-archive text-base"></i> {showArchived ? 'Ativar' : 'Arquivar'}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
-            </div>
-        )}
+              );
+            })
+          )}
+        </div>
       </main>
 
       {/* Product Editor Modal */}
@@ -333,7 +370,6 @@ const Inventory: React.FC<InventoryProps> = ({ role }) => {
 
             <form onSubmit={handleSave} className="p-6 overflow-y-auto custom-scrollbar">
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                    {/* Visual and ID Column */}
                     <div className="lg:col-span-4 space-y-4">
                         <div className="relative group">
                             <div className="aspect-square rounded-2xl bg-slate-50 border-2 border-dashed border-slate-200 flex items-center justify-center overflow-hidden transition-all group-hover:border-brand-300 relative">
@@ -363,7 +399,6 @@ const Inventory: React.FC<InventoryProps> = ({ role }) => {
                         </div>
                     </div>
 
-                    {/* Data and Multi-store Column */}
                     <div className="lg:col-span-8 space-y-4">
                         <div className="space-y-0.5">
                             <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest ml-1">Nome do Produto</label>

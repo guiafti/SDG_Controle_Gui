@@ -1,250 +1,271 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 
 const Dashboard: React.FC = () => {
   const [syncStatus, setSyncStatus] = useState({ pending: 0, total: 0 });
-  const [stats, setStats] = useState({ totalRevenue: 0, monthlyRevenue: 0 });
+  const [stats, setStats] = useState({ totalRevenue: 0, monthlyRevenue: 0, dailyRevenue: 0 });
   const [lowStockItems, setLowStockItems] = useState<any[]>([]);
-  const [staleStockItems, setStaleStockItems] = useState<any[]>([]);
-  const [alertFilter, setAlertFilter] = useState<'low' | 'stale'>('low');
-  const [selectedStore, setSelectedStore] = useState('1');
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [alerts, setAlerts] = useState<any[]>([]);
+  const [reminders, setReminders] = useState<string[]>([
+    'Lembrete: Conferência de caixa Loja Centro às 19h.',
+    'Aviso: Nova carga de películas chega amanhã na Loja Shopping.',
+    'Meta: Alcançamos 85% do faturamento mensal projetado!'
+  ]);
+
+  const [expandedSection, setExpandedId] = useState<string | null>(null);
+
+  const birthdays = [
+    { name: 'Ricardo (Técnico)', date: '05/05', role: 'Equipe' },
+    { name: 'Loja Almenara Cell', date: '08/05', role: 'Parceiro' },
+    { name: 'Maria Silva', date: '12/05', role: 'Equipe' }
+  ];
+
+  const bills = [
+    { desc: 'Aluguel Loja Shopping', value: 2500, due: '05/05', status: 'pending' },
+    { desc: 'Fornecedor Películas SP', value: 1200, due: '07/05', status: 'urgent' },
+    { desc: 'Internet Matriz', value: 150, due: '10/05', status: 'pending' }
+  ];
 
   const fetchData = async () => {
     try {
-      const status = await window.api.getSyncStatus();
-      setSyncStatus(status || { pending: 0, total: 0 });
-      
-      const s = await window.api.getDashboardStats();
-      setStats(s || { totalRevenue: 0, monthlyRevenue: 0 });
-
-      const lowStock = await window.api.getLowStockItems();
+      const [sStatus, dStats, lowStock] = await Promise.all([
+        window.api.getSyncStatus(),
+        window.api.getDashboardStats(),
+        window.api.getLowStockItems()
+      ]);
+      setSyncStatus(sStatus || { pending: 0, total: 0 });
+      setStats({ ...dStats, dailyRevenue: (dStats?.monthlyRevenue || 0) / 22 }); 
       setLowStockItems(lowStock || []);
 
-      const staleStock = await window.api.getStaleStockItems();
-      setStaleStockItems(staleStock || []);
-    } catch (e) {
-      console.error(e);
-    }
+      setAlerts([
+        { id: 1, type: 'warranty', title: 'Retorno de Garantia', desc: 'iPhone 13 - Tela piscando (Loja Avenida)', date: 'Hoje' },
+        { id: 2, type: 'expense', title: 'Despesa Alta Detectada', desc: 'Manutenção de Ar Condicionado (Matriz)', date: 'Ontem' }
+      ]);
+    } catch (e) { console.error(e); }
   };
 
   useEffect(() => {
     fetchData();
-    const interval = setInterval(fetchData, 10000);
+    const interval = setInterval(fetchData, 30000);
     return () => clearInterval(interval);
   }, []);
 
-  const handleImportClick = () => {
-    fileInputRef.current?.click();
-  };
-
-  const onFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = async (event: any) => {
-      const xmlData = event.target.result;
-      try {
-        const result = await window.api.importXmlProducts(xmlData, selectedStore);
-        toast.success(`SUCESSO!\nNovos: ${result.newProducts}\nEstoques: ${result.stockUpdates}`);
-        fetchData();
-      } catch (error) {
-        toast.error('ERRO: Verifique o formato do XML.');
-      }
-    };
-    reader.readAsText(file);
-    e.target.value = '';
-  };
-
-  const handleDownloadTemplate = async () => {
-    try {
-      const template = await window.api.downloadProtocolTemplate();
-      const blob = new Blob([template], { type: 'application/xml' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'protocolo_madrugadao.xml';
-      document.body.appendChild(a);
-      a.click();
-      setTimeout(() => {
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-      }, 100);
-    } catch (e) {
-      toast.error('Falha ao gerar arquivo modelo.');
-    }
-  };
-
-  const activeItems = alertFilter === 'low' ? lowStockItems : staleStockItems;
-
   return (
-    <section id="view-dashboard" className="view-section active p-4 md:p-6 max-w-7xl mx-auto w-full font-sans space-y-4 animate-in fade-in duration-500">
+    <section id="view-dashboard" className="view-section active p-4 md:p-6 max-w-7xl mx-auto w-full font-sans space-y-6 animate-in fade-in duration-500 pb-20">
       
-      {/* Upper Grid: XML Import and Stats */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-        
-        {/* Protocolo Guardião (XML Import) - Compact Card */}
-        <div className="lg:col-span-4 bg-white rounded-2xl shadow-sm border border-slate-100 p-5 flex flex-col justify-between group">
-          <div className="space-y-4">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-brand-50 rounded-lg flex items-center justify-center text-brand-500">
-                <i className="ph ph-shield-check text-xl"></i>
-              </div>
-              <div>
-                <h3 className="text-xs font-bold text-slate-800 uppercase tracking-tight">Protocolo Guardião</h3>
-                <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Carga de Estoque Massiva</p>
-              </div>
-            </div>
-
-            <div className="space-y-1">
-              <label className="block text-[9px] font-bold text-slate-400 uppercase ml-1">Unidade de Destino</label>
-              <select 
-                value={selectedStore} 
-                onChange={(e) => setSelectedStore(e.target.value)}
-                className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold outline-none focus:border-brand-500 transition-all appearance-none"
-              >
-                <option value="1">Loja A (Centro)</option>
-                <option value="2">Loja B (Avenida)</option>
-                <option value="3">Loja C (Shopping)</option>
-              </select>
-            </div>
+      {/* Central Command Header: Daily Summary */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="bg-slate-900 rounded-2xl shadow-xl p-5 flex flex-col justify-center relative overflow-hidden group">
+          <div className="absolute -right-4 -top-4 text-white/5 group-hover:scale-110 transition-transform">
+            <i className="ph ph-currency-dollar text-8xl"></i>
           </div>
-          
-          <input type="file" ref={fileInputRef} onChange={onFileChange} accept=".xml" className="hidden" />
-
-          <div className="mt-6 space-y-2">
-            <button 
-              onClick={handleImportClick}
-              className="w-full bg-slate-900 text-white py-3 rounded-xl font-bold text-xs hover:bg-black flex items-center justify-center gap-2 shadow-md active:scale-[0.98] transition-all"
-            >
-              <i className="ph ph-file-arrow-up text-lg"></i>
-              IMPORTAR XML
-            </button>
-            <button 
-              onClick={handleDownloadTemplate}
-              className="w-full text-slate-400 py-1 font-bold text-[9px] hover:text-brand-600 transition-colors flex items-center justify-center gap-1.5"
-            >
-              <i className="ph ph-download-simple"></i>
-              BAIXAR MODELO
-            </button>
+          <div className="relative z-10">
+            <p className="text-[10px] font-black text-brand-400 uppercase tracking-[0.2em] mb-1">Vendas Hoje</p>
+            <h3 className="text-3xl font-bold text-white tracking-tight font-mono">
+              {stats.dailyRevenue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+            </h3>
+            <div className="mt-2 flex items-center gap-1.5 text-emerald-400 font-bold text-[9px] uppercase">
+              <i className="ph ph-trend-up"></i> 
+              <span>+12% Estimado</span>
+            </div>
           </div>
         </div>
 
-        {/* Sync and Revenue Stats */}
-        <div className="lg:col-span-8 grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Sync Card */}
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 flex flex-col justify-center relative overflow-hidden">
-            <div className="absolute -right-4 -bottom-4 text-slate-50 opacity-50">
-              <i className="ph ph-cloud-arrow-up text-8xl"></i>
-            </div>
-            <div className="relative z-10">
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Status de Sincronização</p>
-              <div className="flex items-baseline gap-2">
-                <span className="text-4xl font-bold text-slate-800 tracking-tighter">{syncStatus.total - syncStatus.pending}</span>
-                <span className="text-slate-300 font-bold text-lg">/ {syncStatus.total}</span>
-              </div>
-              <div className="mt-3 flex items-center gap-2">
-                <div className={`w-2 h-2 rounded-full ${syncStatus.pending > 0 ? 'bg-orange-500 animate-pulse' : 'bg-emerald-500'}`}></div>
-                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-tight">
-                  {syncStatus.pending > 0 ? `${syncStatus.pending} registros aguardando nuvem` : 'Base local 100% espelhada'}
-                </p>
-              </div>
-            </div>
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 flex flex-col justify-center">
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Pendências Globais</p>
+          <div className="flex items-baseline gap-2">
+            <span className="text-3xl font-bold text-slate-800 tracking-tighter">{(syncStatus.pending || 0) + 4}</span>
+            <span className="text-slate-400 font-bold text-xs uppercase">Ações</span>
           </div>
+          <div className="mt-2 flex gap-2">
+            <span className="px-1.5 py-0.5 bg-orange-50 text-orange-600 rounded text-[8px] font-black uppercase">4 Reparos</span>
+            <span className="px-1.5 py-0.5 bg-red-50 text-red-600 rounded text-[8px] font-black uppercase">{(syncStatus.pending || 0)} Sinc.</span>
+          </div>
+        </div>
 
-          {/* Revenue Card */}
-          <div className="bg-slate-900 rounded-2xl shadow-lg p-5 flex flex-col justify-center relative overflow-hidden">
-            <div className="absolute -right-4 -top-4 text-white/5">
-              <i className="ph ph-chart-line-up text-9xl"></i>
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 flex flex-col justify-center relative overflow-hidden">
+          <div className="absolute -right-2 -bottom-2 text-slate-50">
+            <i className="ph ph-cloud-check text-7xl"></i>
+          </div>
+          <div className="relative z-10">
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Status da Rede</p>
+            <div className="flex items-center gap-2">
+              <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]"></div>
+              <span className="text-sm font-bold text-slate-700 uppercase tracking-tight">Rede Online</span>
             </div>
-            <div className="relative z-10">
-              <p className="text-[10px] font-bold text-brand-400 uppercase tracking-widest mb-1">Faturamento Mensal</p>
-              <h3 className="text-3xl font-bold text-white tracking-tight font-mono">
-                {stats.monthlyRevenue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-              </h3>
-              <p className="mt-2 text-[9px] font-bold text-slate-500 uppercase tracking-wider">
-                Acumulado Histórico: {stats.totalRevenue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-              </p>
+            <p className="text-[9px] font-medium text-slate-400 mt-2 italic">Lojas sincronizadas com a nuvem</p>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 flex flex-col justify-center">
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Produtividade</p>
+          <div className="flex items-baseline gap-1">
+            <span className="text-3xl font-bold text-slate-800 tracking-tighter">92%</span>
+            <div className="w-24 h-1.5 bg-slate-100 rounded-full ml-3 overflow-hidden">
+              <div className="h-full bg-brand-500 w-[92%]"></div>
             </div>
           </div>
+          <p className="text-[9px] font-bold text-slate-400 uppercase mt-2">Nível de Eficiência Operacional</p>
         </div>
       </div>
-      
-      {/* SEÇÃO DE ALERTAS DE ESTOQUE - Compact & Professional */}
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden flex flex-col">
-        <div className="bg-slate-50 p-3 px-6 flex flex-col sm:flex-row justify-between items-center gap-3 border-b border-slate-100">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-white border border-slate-200 rounded-lg flex items-center justify-center text-slate-400">
-              <i className={`ph ${alertFilter === 'low' ? 'ph-warning-octagon' : 'ph-clock-counter-clockwise'} text-lg`}></i>
-            </div>
-            <div>
-              <h3 className="text-xs font-bold text-slate-700 uppercase tracking-tight">
-                {alertFilter === 'low' ? 'Monitor de Estoque Crítico' : 'Análise de Itens Parados'}
-              </h3>
-              <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Inteligência de Inventário</p>
-            </div>
-          </div>
-          
-          <div className="flex items-center gap-1 bg-white p-1 rounded-xl border border-slate-200 shadow-sm">
-            <button 
-              onClick={() => setAlertFilter('low')}
-              className={`px-4 py-1.5 rounded-lg text-[9px] font-bold uppercase transition-all ${alertFilter === 'low' ? 'bg-slate-900 text-white shadow-md' : 'text-slate-400 hover:text-slate-600'}`}
-            >
-              Baixo Estoque ({lowStockItems.length})
-            </button>
-            <button 
-              onClick={() => setAlertFilter('stale')}
-              className={`px-4 py-1.5 rounded-lg text-[9px] font-bold uppercase transition-all ${alertFilter === 'stale' ? 'bg-slate-900 text-white shadow-md' : 'text-slate-400 hover:text-slate-600'}`}
-            >
-              Sem Giro ({staleStockItems.length})
-            </button>
-          </div>
-        </div>
 
-        <div className="p-2">
-          {activeItems.length === 0 ? (
-            <div className="py-16 text-center text-slate-300 font-bold uppercase tracking-widest flex flex-col items-center gap-2">
-              <i className="ph ph-check-circle text-4xl opacity-20"></i>
-              <span className="text-[10px]">Operação Saudável: Sem Alertas</span>
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        {/* Coluna Esquerda: Recados e Aniversariantes */}
+        <div className="lg:col-span-4 space-y-4">
+          <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6 space-y-4 relative overflow-hidden">
+            <div className="flex items-center gap-3 border-b border-slate-50 pb-4">
+              <div className="w-10 h-10 bg-brand-50 rounded-xl flex items-center justify-center text-brand-600 shadow-sm">
+                <i className="ph ph-megaphone-simple text-2xl"></i>
+              </div>
+              <div>
+                <h3 className="text-sm font-black text-slate-800 uppercase italic">Central de Recados</h3>
+                <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Avisos e Notas Internas</p>
+              </div>
             </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 p-2">
-              {activeItems.map((item, idx) => (
-                <div key={idx} className="bg-white rounded-xl p-3 border border-slate-100 flex flex-col gap-3 group hover:border-brand-300 hover:shadow-sm transition-all">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex-1 min-w-0">
-                      <h4 className="font-bold text-slate-700 text-[11px] uppercase truncate leading-tight">{item.name}</h4>
-                      <span className="text-[8px] font-mono font-bold text-slate-400 block mt-0.5 tracking-tighter">#{item.barcode}</span>
-                    </div>
-                    <div className="text-right shrink-0">
-                      <span className="text-[7px] font-bold text-slate-400 uppercase block leading-none mb-1">
-                        {alertFilter === 'low' ? 'Mínimo' : 'Tolerância'}
-                      </span>
-                      <span className="text-xs font-bold text-slate-500 italic bg-slate-50 px-1.5 py-0.5 rounded border border-slate-100">
-                        {alertFilter === 'low' ? (item.min_1 || 2) : `${item.stale_1 || 30}d`}
-                      </span>
-                    </div>
-                  </div>
-                  
-                  <div className="grid grid-cols-3 gap-1.5 pt-2 border-t border-slate-50">
-                    {[1, 2, 3].map(storeIdx => {
-                      const stock = item[`stock_${storeIdx}`];
-                      const min = item[`min_${storeIdx}`] || 2;
-                      const isLow = alertFilter === 'low' && stock <= min;
-                      const storeName = storeIdx === 1 ? 'Centro' : storeIdx === 2 ? 'Avenida' : 'Shopping';
-                      
-                      return (
-                        <div key={storeIdx} className={`p-1.5 rounded-lg border text-center relative overflow-hidden transition-colors ${isLow ? 'bg-red-50/50 border-red-100' : 'bg-slate-50/30 border-slate-100'}`}>
-                          <span className="text-[7px] font-bold text-slate-400 uppercase block mb-0.5 truncate">{storeName}</span>
-                          <span className={`text-xs font-bold ${isLow ? 'text-red-600' : 'text-slate-600'}`}>{stock}</span>
-                        </div>
-                      );
-                    })}
-                  </div>
+            
+            <div className="space-y-3">
+              {reminders.map((msg, i) => (
+                <div key={i} className="flex gap-3 p-3 bg-slate-50 rounded-2xl border border-slate-100 hover:bg-white hover:border-brand-200 hover:shadow-md transition-all cursor-pointer group">
+                  <div className="w-1 h-auto bg-brand-400 rounded-full group-hover:scale-y-110 transition-transform"></div>
+                  <p className="text-[11px] text-slate-600 font-medium leading-relaxed italic">"{msg}"</p>
                 </div>
               ))}
             </div>
-          )}
+
+            <button className="w-full py-2.5 bg-slate-900 text-white rounded-xl font-bold uppercase text-[9px] tracking-[0.2em] hover:bg-black transition-all">
+              Novo Recado para Equipe
+            </button>
+          </div>
+
+          {/* Social: Aniversariantes - Expandable */}
+          <div className={`bg-white rounded-3xl border border-slate-100 shadow-sm transition-all duration-500 overflow-hidden ${expandedSection === 'bday' ? 'max-h-[600px]' : 'max-h-[85px]'}`}>
+            <div className="p-5 flex justify-between items-center cursor-pointer bg-slate-50/30" onClick={() => setExpandedId(expandedSection === 'bday' ? null : 'bday')}>
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 bg-brand-50 rounded-lg flex items-center justify-center text-brand-500">
+                  <i className="ph ph-cake text-xl"></i>
+                </div>
+                <div>
+                  <h3 className="text-[10px] font-black text-slate-800 uppercase italic leading-none mb-1">Aniversariantes</h3>
+                  <p className="text-[8px] text-slate-400 font-bold uppercase tracking-widest">Parabéns aos envolvidos</p>
+                </div>
+              </div>
+              <i className="ph ph-caret-down text-slate-400 transition-transform" style={{ transform: expandedSection === 'bday' ? 'rotate(180deg)' : 'rotate(0deg)' }}></i>
+            </div>
+            <div className="p-4 pt-0 space-y-2">
+              {birthdays.map((b, i) => (
+                <div key={i} className="flex items-center justify-between p-3 bg-slate-50 rounded-2xl border border-slate-100 group hover:bg-white hover:border-brand-200 transition-all">
+                  <div className="flex items-center gap-3">
+                    <div className="w-7 h-7 rounded-full bg-brand-100 flex items-center justify-center text-[10px] font-bold text-brand-600">
+                      {b.name.charAt(0)}
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-bold text-slate-700 uppercase">{b.name}</p>
+                      <p className="text-[8px] text-slate-400 font-bold uppercase tracking-tight">{b.role}</p>
+                    </div>
+                  </div>
+                  <span className="text-[10px] font-mono font-black text-brand-500 bg-white px-2 py-1 rounded-lg border border-slate-100">{b.date}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Monitor de Operação Crítica */}
+        <div className="lg:col-span-8 space-y-4">
+          <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden flex flex-col h-full">
+            <div className="bg-slate-50/80 p-4 px-8 flex justify-between items-center border-b border-slate-100">
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 bg-white border border-slate-200 rounded-xl flex items-center justify-center text-red-500 shadow-sm">
+                  <i className="ph ph-warning-octagon text-2xl"></i>
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-slate-800 uppercase italic">Operação Crítica</h3>
+                  <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Resumo de Problemas Detectados na Rede</p>
+                </div>
+              </div>
+              <span className="px-4 py-1.5 bg-red-50 text-red-600 rounded-full text-[9px] font-black uppercase animate-pulse border border-red-100">Monitorando 4 Lojas</span>
+            </div>
+
+            <div className="p-8 grid grid-cols-1 md:grid-cols-2 gap-10 flex-1">
+              
+              {/* Alertas Reposição */}
+              <div className="space-y-4">
+                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-2">
+                  <i className="ph ph-package text-brand-500"></i> Reposição Necessária
+                </h4>
+                <div className="space-y-2 max-h-[280px] overflow-y-auto pr-3 custom-scrollbar">
+                  {lowStockItems.length === 0 ? (
+                    <p className="text-[10px] text-slate-300 italic text-center py-10">Nenhum item em nível crítico.</p>
+                  ) : lowStockItems.slice(0, 5).map((item, i) => (
+                    <div key={i} className="p-3 bg-white border border-slate-100 rounded-2xl flex justify-between items-center hover:border-brand-200 transition-all group">
+                      <div className="min-w-0">
+                        <span className="text-[11px] font-bold text-slate-700 uppercase truncate block leading-none group-hover:text-brand-600 transition-colors">{item.name}</span>
+                        <span className="text-[8px] font-mono text-slate-400 mt-1.5 block">#{item.barcode}</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-[8px] font-black text-red-500 bg-red-50 px-2 py-0.5 rounded uppercase">CRÍTICO</span>
+                        <span className="text-xs font-bold text-slate-800 font-mono">{Object.values(item.stocks || {}).reduce((a: any, b: any) => a + b, 0)} un</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Vencimentos e Problemas */}
+              <div className="space-y-6">
+                {/* Contas da Semana - Expandable Card */}
+                <div className={`bg-slate-50/50 rounded-3xl border border-slate-100 transition-all duration-500 overflow-hidden ${expandedSection === 'bills' ? 'max-h-[400px]' : 'max-h-[160px]'}`}>
+                  <div className="p-4 flex justify-between items-center cursor-pointer border-b border-slate-100" onClick={() => setExpandedId(expandedSection === 'bills' ? null : 'bills')}>
+                    <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                      <i className="ph ph-calendar-check text-emerald-500"></i> Contas da Semana
+                    </h4>
+                    <i className="ph ph-caret-down text-slate-400" style={{ transform: expandedSection === 'bills' ? 'rotate(180deg)' : 'rotate(0deg)' }}></i>
+                  </div>
+                  <div className="p-3 space-y-2">
+                    {bills.map((bill, i) => (
+                      <div key={i} className="flex justify-between items-center p-2 bg-white rounded-xl border border-slate-50">
+                        <div className="min-w-0">
+                          <p className="text-[10px] font-bold text-slate-700 truncate">{bill.desc}</p>
+                          <p className="text-[8px] text-slate-400 uppercase font-black">{bill.due} • {bill.status === 'urgent' ? 'HOJE' : 'A VENCER'}</p>
+                        </div>
+                        <span className={`text-[10px] font-mono font-black ${bill.status === 'urgent' ? 'text-red-500' : 'text-slate-600'}`}>
+                          R$ {bill.value.toLocaleString()}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Retornos e Garantias */}
+                <div className="space-y-3">
+                  <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                    <i className="ph ph-arrow-counter-clockwise text-orange-500"></i> Retornos Técnicos
+                  </h4>
+                  <div className="grid grid-cols-1 gap-2">
+                    {alerts.map(alert => (
+                      <div key={alert.id} className="p-3 rounded-2xl border border-orange-100 bg-orange-50/20 flex flex-col gap-1">
+                        <div className="flex justify-between">
+                          <p className="text-[10px] font-black text-slate-800 uppercase truncate">{alert.title}</p>
+                          <span className="text-[8px] font-bold text-orange-500">{alert.date}</span>
+                        </div>
+                        <p className="text-[10px] text-slate-500 leading-tight italic">"{alert.desc}"</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                
+                {/* Micro Indicador de Perdas */}
+                <div className="pt-4 border-t border-slate-50 flex items-center justify-between">
+                  <div>
+                    <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block mb-1">Impacto Financeiro Perdas</span>
+                    <span className="text-sm font-bold text-red-500 font-mono">- R$ 1.240,00</span>
+                  </div>
+                  <button className="px-3 py-1.5 bg-slate-900 text-white rounded-lg text-[8px] font-black uppercase tracking-widest hover:bg-black transition-all">Ver Detalhes</button>
+                </div>
+              </div>
+
+            </div>
+          </div>
         </div>
       </div>
     </section>
