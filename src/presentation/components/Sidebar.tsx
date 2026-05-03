@@ -36,13 +36,25 @@ const Sidebar: React.FC<SidebarProps> = ({ activeView, onSwitchView, onOpenPDV, 
 
         <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1 ml-2">Monitoramento</div>
         
-        <button 
-          onClick={() => onSwitchView('dashboard')}
-          className={`nav-btn w-full flex items-center gap-3 px-4 py-2.5 rounded-xl font-bold text-xs transition-all ${activeView === 'dashboard' ? 'bg-white/10 text-white border border-white/5 shadow-inner' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
-        >
-          <i className="ph ph-chart-pie-slice text-xl"></i>
-          Dashboard
-        </button>
+        {role === 'admin' && (
+          <>
+            <button 
+              onClick={() => onSwitchView('dashboard')}
+              className={`nav-btn w-full flex items-center gap-3 px-4 py-2.5 rounded-xl font-bold text-xs transition-all ${activeView === 'dashboard' ? 'bg-white/10 text-white border border-white/5 shadow-inner' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
+            >
+              <i className="ph ph-chart-pie-slice text-xl"></i>
+              Dashboard
+            </button>
+
+            <button 
+              onClick={() => onSwitchView('analytics')}
+              className={`nav-btn w-full flex items-center gap-3 px-4 py-2.5 rounded-xl font-bold text-xs transition-all ${activeView === 'analytics' ? 'bg-white/10 text-white border border-white/5 shadow-inner' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
+            >
+              <i className="ph ph-strategy text-xl"></i>
+              Análise Preditiva
+            </button>
+          </>
+        )}
 
         <button 
           onClick={() => onSwitchView('crm')}
@@ -50,14 +62,6 @@ const Sidebar: React.FC<SidebarProps> = ({ activeView, onSwitchView, onOpenPDV, 
         >
           <i className="ph ph-users-four text-xl"></i>
           CRM - Clientes
-        </button>
-
-        <button 
-          onClick={() => onSwitchView('analytics')}
-          className={`nav-btn w-full flex items-center gap-3 px-4 py-2.5 rounded-xl font-bold text-xs transition-all ${activeView === 'analytics' ? 'bg-white/10 text-white border border-white/5 shadow-inner' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
-        >
-          <i className="ph ph-strategy text-xl"></i>
-          Análise Preditiva
         </button>
 
         <button 
@@ -78,13 +82,15 @@ const Sidebar: React.FC<SidebarProps> = ({ activeView, onSwitchView, onOpenPDV, 
           Assistência
         </button>
 
-        <button 
-          onClick={() => onSwitchView('financeiro')}
-          className={`nav-btn w-full flex items-center gap-3 px-4 py-2.5 rounded-xl font-bold text-xs transition-all ${activeView === 'financeiro' ? 'bg-white/10 text-white border border-white/5 shadow-inner' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
-        >
-          <i className="ph ph-bank text-xl"></i>
-          Financeiro
-        </button>
+        {role === 'admin' && (
+          <button 
+            onClick={() => onSwitchView('financeiro')}
+            className={`nav-btn w-full flex items-center gap-3 px-4 py-2.5 rounded-xl font-bold text-xs transition-all ${activeView === 'financeiro' ? 'bg-white/10 text-white border border-white/5 shadow-inner' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
+          >
+            <i className="ph ph-bank text-xl"></i>
+            Financeiro
+          </button>
+        )}
         
         {role === 'admin' && (
           <>

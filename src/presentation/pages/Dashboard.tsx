@@ -5,12 +5,7 @@ const Dashboard: React.FC = () => {
   const [stats, setStats] = useState({ totalRevenue: 0, monthlyRevenue: 0, dailyRevenue: 0 });
   const [lowStockItems, setLowStockItems] = useState<any[]>([]);
   const [alerts, setAlerts] = useState<any[]>([]);
-  const [reminders, setReminders] = useState<string[]>([
-    'Lembrete: Conferência de caixa Loja Centro às 19h.',
-    'Aviso: Nova carga de películas chega amanhã na Loja Shopping.',
-    'Meta: Alcançamos 85% do faturamento mensal projetado!'
-  ]);
-
+  const [tasks, setTasks] = useState<any[]>([]);
   const [expandedSection, setExpandedId] = useState<string | null>(null);
 
   const birthdays = [
@@ -27,18 +22,19 @@ const Dashboard: React.FC = () => {
 
   const fetchData = async () => {
     try {
-      const [sStatus, dStats, lowStock] = await Promise.all([
+      const [sStatus, dStats, lowStock, tData] = await Promise.all([
         window.api.getSyncStatus(),
         window.api.getDashboardStats(),
-        window.api.getLowStockItems()
+        window.api.getLowStockItems(),
+        window.api.getTasks()
       ]);
       setSyncStatus(sStatus || { pending: 0, total: 0 });
       setStats({ ...dStats, dailyRevenue: (dStats?.monthlyRevenue || 0) / 22 }); 
       setLowStockItems(lowStock || []);
+      setTasks(tData || []);
 
       setAlerts([
-        { id: 1, type: 'warranty', title: 'Retorno de Garantia', desc: 'iPhone 13 - Tela piscando (Loja Avenida)', date: 'Hoje' },
-        { id: 2, type: 'expense', title: 'Despesa Alta Detectada', desc: 'Manutenção de Ar Condicionado (Matriz)', date: 'Ontem' }
+        { id: 1, type: 'warranty', title: 'Retorno de Garantia', desc: 'iPhone 13 - Tela piscando', date: 'Hoje' },
       ]);
     } catch (e) { console.error(e); }
   };
@@ -48,6 +44,8 @@ const Dashboard: React.FC = () => {
     const interval = setInterval(fetchData, 30000);
     return () => clearInterval(interval);
   }, []);
+
+  const pendingTasks = tasks.filter(t => t.status === 'pending');
 
   return (
     <section id="view-dashboard" className="view-section active p-4 md:p-6 max-w-7xl mx-auto w-full font-sans space-y-6 animate-in fade-in duration-500 pb-20">
@@ -73,11 +71,11 @@ const Dashboard: React.FC = () => {
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 flex flex-col justify-center">
           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Pendências Globais</p>
           <div className="flex items-baseline gap-2">
-            <span className="text-3xl font-bold text-slate-800 tracking-tighter">{(syncStatus.pending || 0) + 4}</span>
+            <span className="text-3xl font-bold text-slate-800 tracking-tighter">{(syncStatus.pending || 0) + pendingTasks.length}</span>
             <span className="text-slate-400 font-bold text-xs uppercase">Ações</span>
           </div>
           <div className="mt-2 flex gap-2">
-            <span className="px-1.5 py-0.5 bg-orange-50 text-orange-600 rounded text-[8px] font-black uppercase">4 Reparos</span>
+            <span className="px-1.5 py-0.5 bg-brand-50 text-brand-600 rounded text-[8px] font-black uppercase">{pendingTasks.length} Missões</span>
             <span className="px-1.5 py-0.5 bg-red-50 text-red-600 rounded text-[8px] font-black uppercase">{(syncStatus.pending || 0)} Sinc.</span>
           </div>
         </div>
@@ -110,30 +108,35 @@ const Dashboard: React.FC = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         
-        {/* Coluna Esquerda: Recados e Aniversariantes */}
+        {/* Coluna Esquerda: Missões e Aniversariantes */}
         <div className="lg:col-span-4 space-y-4">
           <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6 space-y-4 relative overflow-hidden">
             <div className="flex items-center gap-3 border-b border-slate-50 pb-4">
               <div className="w-10 h-10 bg-brand-50 rounded-xl flex items-center justify-center text-brand-600 shadow-sm">
-                <i className="ph ph-megaphone-simple text-2xl"></i>
+                <i className="ph ph-shield-check text-2xl"></i>
               </div>
               <div>
-                <h3 className="text-sm font-black text-slate-800 uppercase italic">Central de Recados</h3>
-                <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Avisos e Notas Internas</p>
+                <h3 className="text-sm font-black text-slate-800 uppercase italic">Missões Ativas</h3>
+                <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Controle de Tarefas da Rede</p>
               </div>
             </div>
             
-            <div className="space-y-3">
-              {reminders.map((msg, i) => (
-                <div key={i} className="flex gap-3 p-3 bg-slate-50 rounded-2xl border border-slate-100 hover:bg-white hover:border-brand-200 hover:shadow-md transition-all cursor-pointer group">
-                  <div className="w-1 h-auto bg-brand-400 rounded-full group-hover:scale-y-110 transition-transform"></div>
-                  <p className="text-[11px] text-slate-600 font-medium leading-relaxed italic">"{msg}"</p>
+            <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1 custom-scrollbar">
+              {pendingTasks.length === 0 ? (
+                <div className="py-10 text-center opacity-30 italic text-[10px]">Nenhuma missão pendente hoje.</div>
+              ) : pendingTasks.map((t, i) => (
+                <div key={i} className="flex gap-3 p-3 bg-slate-50 rounded-2xl border border-slate-100 hover:border-brand-500 transition-all cursor-pointer group">
+                  <div className="w-1 h-auto bg-brand-500 rounded-full"></div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[11px] text-slate-700 font-bold uppercase truncate">{t.title}</p>
+                    <p className="text-[8px] text-slate-400 font-black uppercase mt-1 italic">Prazo: {t.due_date || 'Imediato'}</p>
+                  </div>
                 </div>
               ))}
             </div>
 
-            <button className="w-full py-2.5 bg-slate-900 text-white rounded-xl font-bold uppercase text-[9px] tracking-[0.2em] hover:bg-black transition-all">
-              Novo Recado para Equipe
+            <button className="w-full py-2.5 bg-slate-900 text-white rounded-xl font-bold uppercase text-[9px] tracking-widest hover:bg-black transition-all">
+              Gestão de Tarefas
             </button>
           </div>
 

@@ -1,7 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 
-const CRM: React.FC = () => {
+interface CRMProps {
+  currentUser?: { id: string, name: string, role: string };
+  currentStoreId?: string;
+}
+
+const CRM: React.FC<CRMProps> = ({ currentUser, currentStoreId }) => {
   const [customers, setCustomers] = useState<any[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<any>(null);
@@ -28,22 +33,52 @@ const CRM: React.FC = () => {
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [familyMembers, setFamilyMembers] = useState<{name: string, relation: string, phone: string}[]>([]);
   const [customFields, setCustomFields] = useState<{label: string, value: string}[]>([]);
+  const [tasks, setTasks] = useState<any[]>([]);
+  const [missionsExpanded, setMissionsExpanded] = useState(false);
 
-  const fetchCustomers = async () => {
+  const fetchData = async () => {
     setLoading(true);
     try {
-      const data = await window.api.getCustomers();
-      setCustomers(data || []);
+      const [cData, tData] = await Promise.all([
+        window.api.getCustomers(),
+        window.api.getTasks()
+      ]);
+      setCustomers(cData || []);
+      setTasks(tData || []);
     } catch (e) {
-      toast.error('Erro ao carregar clientes');
+      toast.error('Erro ao carregar dados');
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    fetchCustomers();
-  }, []);
+  useEffect(() => { fetchData(); }, []);
+
+  const toggleTaskStatus = async (id: string, currentStatus: string) => {
+    const newStatus = currentStatus === 'pending' ? 'completed' : 'pending';
+    const res = await window.api.toggleTask(id, newStatus);
+    if (res.success) {
+      toast.success('Missão Cumprida!');
+      fetchData();
+    }
+  };
+
+  // Filter tasks: Show pending ones that are assigned to the whole store OR this specific user
+  const pendingTasks = tasks.filter(t => {
+    if (t.status !== 'pending') return false;
+    
+    // For admins, show all
+    if (currentUser?.role === 'admin') return true;
+
+    // For operators, filter by store or specific name
+    const isStoreTask = t.assignee_type === 'store' && t.assignee_id === currentStoreId;
+    const isMyTask = t.assignee_type === 'user' && (
+      t.assignee_id === currentUser?.id || 
+      t.assignee_id === currentUser?.name
+    );
+    
+    return isStoreTask || isMyTask;
+  });
 
   // Logic to parse structured data from the 'notes' text field
   const parseNotes = (rawNotes: string) => {
@@ -59,7 +94,6 @@ const CRM: React.FC = () => {
         const newTags = (data.tags || []).filter((t: string) => !availableTags.includes(t));
         if (newTags.length > 0) setAvailableTags([...availableTags, ...newTags]);
       } else {
-        // Fallback for old/plain text notes
         setSelectedTags([]);
         setFamilyMembers([]);
         setCustomFields([]);
@@ -97,7 +131,6 @@ const CRM: React.FC = () => {
     e.preventDefault();
     if (!name.trim()) return toast.error('O nome do cliente é obrigatório!');
 
-    // Consolidate everything into a JSON string within the 'notes' field
     const consolidatedNotes = JSON.stringify({
       tags: selectedTags,
       family: familyMembers,
@@ -117,7 +150,7 @@ const CRM: React.FC = () => {
       if (result.success) {
         toast.success('Cliente gravado com sucesso!', { id: loadingId });
         setIsModalOpen(false);
-        fetchCustomers();
+        fetchData();
       } else {
         toast.error('Erro ao salvar cliente', { id: loadingId });
       }
@@ -126,7 +159,6 @@ const CRM: React.FC = () => {
     }
   };
 
-  // Helper: Add Family
   const addFamilyMember = () => setFamilyMembers([...familyMembers, { name: '', relation: '', phone: '' }]);
   const updateFamily = (index: number, field: string, val: string) => {
     const updated = [...familyMembers];
@@ -135,7 +167,6 @@ const CRM: React.FC = () => {
   };
   const removeFamily = (index: number) => setFamilyMembers(familyMembers.filter((_, i) => i !== index));
 
-  // Helper: Custom Fields
   const addCustomField = () => setCustomFields([...customFields, { label: '', value: '' }]);
   const updateCustom = (index: number, field: string, val: string) => {
     const updated = [...customFields];
@@ -144,7 +175,6 @@ const CRM: React.FC = () => {
   };
   const removeCustom = (index: number) => setCustomFields(customFields.filter((_, i) => i !== index));
 
-  // Helper: Tags
   const toggleTag = (tag: string) => {
     if (selectedTags.includes(tag)) setSelectedTags(selectedTags.filter(t => t !== tag));
     else setSelectedTags([...selectedTags, tag]);
@@ -167,9 +197,8 @@ const CRM: React.FC = () => {
 
   return (
     <div className="flex-1 flex flex-col h-full bg-slate-50 overflow-hidden animate-in fade-in duration-500">
-      <main className="p-4 md:p-6 space-y-4 flex-1 overflow-y-auto custom-scrollbar">
+      <main className="p-4 md:p-6 space-y-4 flex-1 overflow-y-auto custom-scrollbar pb-20">
         
-        {/* Header Section */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-2">
           <div>
             <h1 className="text-2xl font-bold text-slate-800 tracking-tight">CRM - Gestão de Clientes</h1>
@@ -182,6 +211,33 @@ const CRM: React.FC = () => {
           >
             <i className="ph ph-user-circle-plus text-xl"></i> Novo Cadastro
           </button>
+        </div>
+
+        {/* Minhas Missões - Dynamic Task Panel */}
+        <div className={`bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden transition-all duration-500 ${missionsExpanded ? 'max-h-[500px]' : 'max-h-[64px]'}`}>
+           <div className="p-4 flex justify-between items-center cursor-pointer bg-slate-900 text-white" onClick={() => setMissionsExpanded(!missionsExpanded)}>
+              <div className="flex items-center gap-3">
+                 <div className="w-8 h-8 bg-brand-500 rounded-lg flex items-center justify-center text-white shadow-lg animate-pulse"><i className="ph ph-shield-check text-xl"></i></div>
+                 <div>
+                    <h3 className="text-xs font-black uppercase italic leading-none">Minhas Missões</h3>
+                    <p className="text-[8px] text-slate-400 font-bold uppercase tracking-widest mt-1">{pendingTasks.length} Comandos Pendentes</p>
+                 </div>
+              </div>
+              <i className="ph ph-caret-down text-slate-500 transition-transform" style={{ transform: missionsExpanded ? 'rotate(180deg)' : 'rotate(0deg)' }}></i>
+           </div>
+           <div className="p-3 space-y-2">
+              {pendingTasks.length === 0 ? (
+                <div className="py-6 text-center text-slate-300 font-bold uppercase text-[9px]">Tudo em ordem! Nenhuma tarefa pendente.</div>
+              ) : pendingTasks.map(t => (
+                <div key={t.id} className="p-3 bg-slate-50 rounded-xl border border-slate-100 flex items-center justify-between group hover:bg-white hover:border-brand-300 transition-all">
+                   <div className="min-w-0 flex-1">
+                      <p className="text-[10px] font-bold text-slate-700 uppercase truncate leading-none mb-1">{t.title}</p>
+                      <p className="text-[8px] text-slate-400 font-black uppercase italic">Prazo: {t.due_date || 'Imediato'}</p>
+                   </div>
+                   <button onClick={() => toggleTaskStatus(t.id, t.status)} className="px-3 py-1 bg-brand-500 text-white rounded-lg text-[9px] font-black uppercase hover:bg-brand-600 shadow-md">OK</button>
+                </div>
+              ))}
+           </div>
         </div>
 
         {/* Search Bar */}
@@ -259,7 +315,7 @@ const CRM: React.FC = () => {
           <div className="bg-white rounded-3xl shadow-2xl max-w-4xl w-full max-h-[95vh] overflow-hidden flex flex-col animate-in fade-in zoom-in duration-200">
             <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-brand-500 text-white rounded-xl flex items-center justify-center shadow-lg shadow-brand-500/20">
+                <div className="w-10 h-10 bg-brand-50 text-white rounded-xl flex items-center justify-center shadow-lg shadow-brand-500/20">
                   <i className="ph ph-user-circle text-xl"></i>
                 </div>
                 <div>

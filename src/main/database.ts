@@ -121,6 +121,15 @@ export const initDatabase = async () => {
       synced INTEGER DEFAULT 0,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
+    CREATE TABLE IF NOT EXISTS tasks (
+      id TEXT PRIMARY KEY,
+      title TEXT NOT NULL,
+      assignee_type TEXT NOT NULL,
+      assignee_id TEXT NOT NULL,
+      status TEXT DEFAULT 'pending',
+      due_date TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
   `);
 
   // Migrações básicas

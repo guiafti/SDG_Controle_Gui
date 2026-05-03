@@ -5,12 +5,14 @@ const NetworkManagement: React.FC = () => {
   const [stores, setStores] = useState<any[]>([]);
   const [users, setUsers] = useState<any[]>([]);
   const [commissions, setCommissions] = useState<any[]>([]);
+  const [tasks, setTasks] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedSection, setExpandedSection] = useState<string | null>('stores');
 
   // Modals
   const [isStoreModalOpen, setIsStoreModalOpen] = useState(false);
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
+  const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [editingStore, setEditingStore] = useState<any>(null);
   const [editingUser, setEditingUser] = useState<any>(null);
 
@@ -21,17 +23,25 @@ const NetworkManagement: React.FC = () => {
   const [userRole, setUserRole] = useState('vendedor');
   const [showArchivedStores, setShowArchivedStores] = useState(false);
 
+  // Task form
+  const [taskTitle, setTaskTitle] = useState('');
+  const [taskAssigneeType, setTaskAssigneeType] = useState<'store' | 'user'>('store');
+  const [taskAssigneeId, setTaskAssigneeId] = useState('');
+  const [taskDueDate, setTaskDueDate] = useState('');
+
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [sData, uData, cData] = await Promise.all([
+      const [sData, uData, cData, tData] = await Promise.all([
         window.api.getStores(true),
         window.api.getUsers(),
-        window.api.getCommissions()
+        window.api.getCommissions(),
+        window.api.getTasks()
       ]);
       setStores(sData || []);
       setUsers(uData || []);
       setCommissions(cData || []);
+      setTasks(tData || []);
     } catch (e) {
       toast.error('Erro ao carregar dados da rede');
     } finally {
@@ -40,6 +50,30 @@ const NetworkManagement: React.FC = () => {
   };
 
   useEffect(() => { fetchData(); }, []);
+
+  // --- Handlers: Tasks ---
+  const handleSaveTask = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!taskTitle || !taskAssigneeId) return toast.error('PREENCHA O TÍTULO E O DESTINATÁRIO');
+    try {
+      const res = await window.api.saveTask({ title: taskTitle, assignee_type: taskAssigneeType, assignee_id: taskAssigneeId, due_date: taskDueDate });
+      if (res.success) {
+        toast.success('MISSÃO ATRIBUÍDA');
+        setIsTaskModalOpen(false);
+        setTaskTitle('');
+        fetchData();
+      }
+    } catch (e) { toast.error('ERRO AO CRIAR TAREFA'); }
+  };
+
+  const toggleTaskStatus = async (id: string, currentStatus: string) => {
+    const newStatus = currentStatus === 'pending' ? 'completed' : 'pending';
+    const res = await window.api.toggleTask(id, newStatus);
+    if (res.success) {
+      toast.success(newStatus === 'completed' ? 'MISSÃO CUMPRIDA!' : 'TAREFA REABERTA');
+      fetchData();
+    }
+  };
 
   // --- Handlers: Stores ---
   const openStoreModal = (s: any = null) => {
@@ -242,6 +276,65 @@ const NetworkManagement: React.FC = () => {
           )}
         </div>
 
+        {/* Section 4: Central de Missões & Tarefas */}
+        <div className={`bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden transition-all duration-300 ${expandedSection === 'missions' ? 'flex-1' : 'h-auto'}`}>
+          <div 
+            onClick={() => setExpandedSection(expandedSection === 'missions' ? null : 'missions')}
+            className="p-4 px-6 flex justify-between items-center cursor-pointer hover:bg-slate-50/50 transition-colors border-b border-slate-50"
+          >
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 bg-slate-900 rounded-xl flex items-center justify-center text-brand-400 shadow-sm"><i className="ph ph-shield-check text-2xl"></i></div>
+              <div>
+                <h3 className="text-sm font-black text-slate-800 uppercase italic">Centro de Missões & Tarefas</h3>
+                <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">{tasks.filter(t => t.status === 'pending').length} Comandos Aguardando OK</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-4">
+               <button onClick={(e) => { e.stopPropagation(); setIsTaskModalOpen(true); }} className="px-3 py-1.5 bg-slate-900 text-white rounded-lg text-[9px] font-black uppercase hover:bg-black transition-all shadow-md">+ Nova Missão</button>
+               <i className="ph ph-caret-down text-slate-400 transition-transform" style={{ transform: expandedSection === 'missions' ? 'rotate(180deg)' : 'rotate(0deg)' }}></i>
+            </div>
+          </div>
+
+          {expandedSection === 'missions' && (
+            <div className="p-4 animate-in slide-in-from-top-2 duration-300">
+               <div className="space-y-2">
+                  {tasks.length === 0 ? (
+                    <div className="py-10 text-center text-slate-300 font-bold uppercase text-[10px]">Nenhuma missão atribuída à rede</div>
+                  ) : tasks.map(t => {
+                    const targetName = t.assignee_type === 'store' 
+                      ? stores.find(s => s.id === t.assignee_id)?.name || 'LOJA DESCONHECIDA'
+                      : users.find(u => u.id === t.assignee_id)?.name || 'VENDEDOR DESCONHECIDO';
+
+                    return (
+                      <div key={t.id} className={`p-4 rounded-2xl border transition-all flex items-center justify-between group ${t.status === 'completed' ? 'bg-slate-50/50 border-slate-100 opacity-60' : 'bg-white border-slate-200 hover:border-brand-500 shadow-sm'}`}>
+                        <div className="flex items-center gap-4 flex-1">
+                           <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-xl ${t.status === 'completed' ? 'bg-emerald-50 text-emerald-500' : 'bg-slate-100 text-slate-400'}`}>
+                             <i className={t.status === 'completed' ? 'ph ph-check-circle' : 'ph ph-circle-dashed animate-spin-slow'}></i>
+                           </div>
+                           <div className="min-w-0 flex-1">
+                              <p className={`text-sm font-bold uppercase truncate ${t.status === 'completed' ? 'text-slate-400 line-through' : 'text-slate-800'}`}>{t.title}</p>
+                              <div className="flex items-center gap-3 mt-0.5">
+                                 <span className={`text-[8px] font-black uppercase px-1.5 py-0.5 rounded ${t.assignee_type === 'store' ? 'bg-orange-100 text-orange-600' : 'bg-blue-100 text-blue-600'}`}>
+                                   {t.assignee_type === 'store' ? 'Loja: ' : 'Indiv: '} {targetName}
+                                 </span>
+                                 {t.due_date && <span className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter italic">Prazo: {t.due_date}</span>}
+                              </div>
+                           </div>
+                        </div>
+                        <button 
+                          onClick={() => toggleTaskStatus(t.id, t.status)}
+                          className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all shadow-md active:scale-95 ${t.status === 'completed' ? 'bg-slate-200 text-slate-500' : 'bg-brand-500 text-white hover:bg-brand-600'}`}
+                        >
+                          {t.status === 'completed' ? 'REABRIR' : 'DAR OK'}
+                        </button>
+                      </div>
+                    );
+                  })}
+               </div>
+            </div>
+          )}
+        </div>
+
       </main>
 
       {/* Store Modal */}
@@ -290,6 +383,62 @@ const NetworkManagement: React.FC = () => {
                <div className="pt-4 flex gap-3">
                   <button type="button" onClick={() => setIsUserModalOpen(false)} className="flex-1 py-4 text-slate-400 font-bold uppercase text-[10px]">Cancelar</button>
                   <button type="submit" className="flex-[2] py-4 bg-slate-900 text-white font-black rounded-2xl shadow-xl uppercase text-xs">Salvar Equipe</button>
+               </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Task Modal */}
+      {isTaskModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[250] flex items-center justify-center p-4">
+          <div className="bg-white rounded-[2.5rem] shadow-2xl max-w-lg w-full overflow-hidden animate-in zoom-in duration-200">
+            <div className="p-6 bg-slate-900 text-white flex justify-between items-center border-b border-white/10">
+               <div>
+                  <h3 className="font-black uppercase italic text-lg tracking-tight">Atribuir Missão</h3>
+                  <p className="text-[9px] text-brand-400 font-bold uppercase tracking-widest">Comando e Controle de Operação</p>
+               </div>
+               <button onClick={() => setIsTaskModalOpen(false)} className="w-10 h-10 rounded-full hover:bg-white/10 flex items-center justify-center transition-colors"><i className="ph ph-x text-2xl"></i></button>
+            </div>
+            <form onSubmit={handleSaveTask} className="p-8 space-y-6 bg-slate-50/30">
+               <div className="space-y-1">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">O que deve ser feito? (Título)</label>
+                  <input value={taskTitle} onChange={e => setTaskTitle(e.target.value)} placeholder="EX: ENVIAR RELATÓRIO DE CAIXA" className="w-full p-4 bg-white border border-slate-200 rounded-2xl font-bold uppercase text-slate-700 outline-none focus:border-brand-500 shadow-inner" />
+               </div>
+               
+               <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Tipo de Alvo</label>
+                    <div className="flex bg-white p-1 rounded-xl border border-slate-200">
+                       <button type="button" onClick={() => setTaskAssigneeType('store')} className={`flex-1 py-2 rounded-lg text-[9px] font-black transition-all ${taskAssigneeType === 'store' ? 'bg-slate-900 text-white shadow-md' : 'text-slate-400'}`}>LOJA</button>
+                       <button type="button" onClick={() => setTaskAssigneeType('user')} className={`flex-1 py-2 rounded-lg text-[9px] font-black transition-all ${taskAssigneeType === 'user' ? 'bg-slate-900 text-white shadow-md' : 'text-slate-400'}`}>EQUIPE</button>
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Prazo / Horário</label>
+                    <input value={taskDueDate} onChange={e => setTaskDueDate(e.target.value)} placeholder="Ex: Até 15:00" className="w-full p-2.5 bg-white border border-slate-200 rounded-xl font-bold text-xs shadow-inner" />
+                  </div>
+               </div>
+
+               <div className="space-y-1">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Destinatário Específico</label>
+                  <select 
+                    value={taskAssigneeId} 
+                    onChange={e => setTaskAssigneeId(e.target.value)} 
+                    className="w-full p-3 bg-white border border-slate-200 rounded-xl font-bold uppercase text-xs shadow-inner appearance-none"
+                  >
+                    <option value="">SELECIONE...</option>
+                    {taskAssigneeType === 'store' ? (
+                      stores.filter(s => !s.archived).map(s => <option key={s.id} value={s.id}>{s.name}</option>)
+                    ) : (
+                      users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)
+                    )}
+                  </select>
+               </div>
+
+               <div className="pt-4 flex gap-4">
+                  <button type="button" onClick={() => setIsTaskModalOpen(false)} className="flex-1 py-4 text-slate-400 font-bold uppercase text-[10px] tracking-widest">Descartar</button>
+                  <button type="submit" className="flex-[3] py-4 bg-brand-500 text-white font-black rounded-2xl shadow-xl hover:bg-brand-600 uppercase text-xs tracking-[0.2em] animate-pulse-slow">Atribuir Missão</button>
                </div>
             </form>
           </div>

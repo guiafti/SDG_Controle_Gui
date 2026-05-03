@@ -151,6 +151,22 @@ ipcMain.handle('save-customer', async (_, c: any) => {
   }
 });
 
+ipcMain.handle('get-tasks', async () => await query('SELECT * FROM tasks ORDER BY created_at DESC'));
+ipcMain.handle('save-task', async (_, t: any) => {
+  try {
+    const id = t.id || randomUUID();
+    await run(`INSERT OR REPLACE INTO tasks (id, title, assignee_type, assignee_id, due_date, status) VALUES (?, ?, ?, ?, ?, ?)`,
+      [id, cleanText(t.title), t.assignee_type, t.assignee_id, t.due_date || '', t.status || 'pending']);
+    return { success: true, id };
+  } catch (err: any) { return { success: false, error: err.message }; }
+});
+ipcMain.handle('toggle-task', async (_, { id, status }) => {
+  try {
+    await run('UPDATE tasks SET status = ? WHERE id = ?', [status, id]);
+    return { success: true };
+  } catch (err: any) { return { success: false, error: err.message }; }
+});
+
 ipcMain.handle('get-stores', async (_, inc) => inc ? await query('SELECT * FROM stores ORDER BY archived ASC, name ASC') : await query('SELECT * FROM stores WHERE archived = 0 ORDER BY name ASC'));
 ipcMain.handle('save-store', async (_, { id, name }) => {
   if (id) await run('UPDATE stores SET name = ? WHERE id = ?', [name.trim().toUpperCase(), id]);

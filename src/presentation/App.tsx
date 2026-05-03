@@ -98,6 +98,14 @@ const App: React.FC = () => {
     setUserRole(role);
     setPdvConfigurado(true);
     setIsLoginOpen(false);
+    
+    // Default sub-view logic based on role
+    if (role === 'vendedor') {
+      setAdminSubView('crm');
+    } else {
+      setAdminSubView('dashboard');
+    }
+    
     setView('pdv');
   };
 
@@ -229,7 +237,7 @@ const App: React.FC = () => {
       case 'settings': return <Settings />;
       case 'repairs': return <Repairs />;
       case 'financeiro': return <FinancialControl />;
-      case 'crm': return <CRM />;
+      case 'crm': return <CRM currentUser={{ id: '', name: vendedor, role: userRole }} currentStoreId={lojaId} />;
       case 'analytics': return <Analytics />;
       case 'network': return <NetworkManagement />;
       default: return <Dashboard />;
