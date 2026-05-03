@@ -14,6 +14,9 @@ const NetworkManagement: React.FC<NetworkManagementProps> = ({ currentUser, curr
   const [loading, setLoading] = useState(true);
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
 
+  // Non-blocking UI states
+  const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
+
   useEffect(() => {
     setExpandedSection('missions');
   }, []);
@@ -83,12 +86,17 @@ const NetworkManagement: React.FC<NetworkManagementProps> = ({ currentUser, curr
   };
 
   const handleDeleteTask = async (id: string) => {
-    if (!window.confirm('Excluir esta missão permanentemente?')) return;
-    const res = await window.api.deleteTask(id);
-    if (res.success) {
-      toast.success('MISSÃO EXCLUÍDA');
-      fetchData();
-    }
+    const loadingId = toast.loading('Excluindo missão...');
+    try {
+      const res = await window.api.deleteTask(id);
+      if (res.success) {
+        toast.success('MISSÃO EXCLUÍDA', { id: loadingId });
+        setConfirmingDeleteId(null);
+        fetchData();
+      } else {
+        toast.error('ERRO AO EXCLUIR', { id: loadingId });
+      }
+    } catch (e) { toast.error('ERRO DE CONEXÃO', { id: loadingId }); }
   };
 
   const handleConfirmCompletion = async (data: any) => {
@@ -177,9 +185,16 @@ const NetworkManagement: React.FC<NetworkManagementProps> = ({ currentUser, curr
                     </div>
                     <div className="flex gap-2">
                       {currentUser?.role === 'admin' && (
-                        <button onClick={(e) => { e.stopPropagation(); handleDeleteTask(t.id); }} className="p-2 text-slate-300 hover:text-red-500 transition-colors"><i className="ph ph-trash text-xl"></i></button>
+                        confirmingDeleteId === t.id ? (
+                          <div className="flex items-center gap-2 animate-in fade-in slide-in-from-right-2">
+                            <button onClick={(e) => { e.stopPropagation(); setConfirmingDeleteId(null); }} className="px-3 py-1.5 bg-slate-100 text-slate-500 text-[8px] font-black uppercase rounded-lg">Cancelar</button>
+                            <button onClick={(e) => { e.stopPropagation(); handleDeleteTask(t.id); }} className="px-3 py-1.5 bg-red-500 text-white text-[8px] font-black uppercase rounded-lg shadow-lg">Apagar</button>
+                          </div>
+                        ) : (
+                          <button onClick={(e) => { e.stopPropagation(); setConfirmingDeleteId(t.id); }} className="p-2 text-slate-300 hover:text-red-500 transition-colors"><i className="ph ph-trash text-xl"></i></button>
+                        )
                       )}
-                      <button onClick={() => t.status === 'pending' ? setSelectedTask(t) : toggleTaskStatus(t.id, t.status)} className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${t.status === 'completed' ? 'bg-slate-200 text-slate-500' : 'bg-brand-500 text-white shadow-lg'}`}>
+                      <button onClick={() => t.status === 'pending' ? setSelectedTask(t) : toggleTaskStatus(t.id, t.status)} className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${t.status === 'completed' ? 'bg-slate-200 text-slate-500' : 'bg-brand-500 text-white shadow-lg shadow-brand-500/10'}`}>
                         {t.status === 'completed' ? 'REABRIR' : 'OK'}
                       </button>
                     </div>
@@ -242,8 +257,8 @@ const NetworkManagement: React.FC<NetworkManagementProps> = ({ currentUser, curr
 
       {/* MISSION MODAL */}
       {isTaskModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[250] flex items-center justify-center p-4">
-          <div className="bg-white rounded-[2.5rem] shadow-2xl max-w-lg w-full overflow-hidden animate-in zoom-in">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[250] flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-[2.5rem] shadow-2xl max-w-lg w-full overflow-hidden animate-in zoom-in duration-200">
             <div className="p-6 bg-slate-900 text-white flex justify-between items-center">
                <h3 className="font-black uppercase italic tracking-tight text-lg">Definir Missão</h3>
                <button onClick={() => setIsTaskModalOpen(false)} className="w-10 h-10 rounded-full hover:bg-white/10 flex items-center justify-center"><i className="ph ph-x text-2xl"></i></button>
@@ -257,14 +272,16 @@ const NetworkManagement: React.FC<NetworkManagementProps> = ({ currentUser, curr
                   <input value={taskDueDate} onChange={e => setTaskDueDate(e.target.value)} placeholder="HORÁRIO (Ex: 15:00)" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-xs outline-none" />
                </div>
                <div className="flex gap-4">
-                  <label className="flex-1 flex items-center gap-2 p-3 bg-slate-50 border border-slate-100 rounded-xl cursor-pointer">
-                    <input type="checkbox" checked={taskIsRoutine} onChange={e => setTaskIsRoutine(e.target.checked)} /><span className="text-[9px] font-black uppercase text-slate-600">Checklist Diário</span>
+                  <label className="flex-1 flex items-center gap-2 p-3 bg-slate-50 border border-slate-100 rounded-xl cursor-pointer hover:bg-white transition-colors">
+                    <input type="checkbox" checked={taskIsRoutine} onChange={e => setTaskIsRoutine(e.target.checked)} className="w-4 h-4 rounded text-brand-500" />
+                    <span className="text-[9px] font-black uppercase text-slate-600">Checklist Diário</span>
                   </label>
-                  <label className="flex-1 flex items-center gap-2 p-3 bg-slate-50 border border-slate-100 rounded-xl cursor-pointer">
-                    <input type="checkbox" checked={taskProofRequired} onChange={e => setTaskProofRequired(e.target.checked)} /><span className="text-[9px] font-black uppercase text-slate-600">Exigir Foto</span>
+                  <label className="flex-1 flex items-center gap-2 p-3 bg-slate-50 border border-slate-100 rounded-xl cursor-pointer hover:bg-white transition-colors">
+                    <input type="checkbox" checked={taskProofRequired} onChange={e => setTaskProofRequired(e.target.checked)} className="w-4 h-4 rounded text-brand-500" />
+                    <span className="text-[9px] font-black uppercase text-slate-600">Exigir Foto</span>
                   </label>
                </div>
-               <select value={taskAssigneeId} onChange={e => setTaskAssigneeId(e.target.value)} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold uppercase text-xs">
+               <select value={taskAssigneeId} onChange={e => setTaskAssigneeId(e.target.value)} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold uppercase text-xs outline-none">
                  <option value="">SELECIONE O DESTINATÁRIO... *</option>
                  {taskAssigneeType === 'store' ? stores.filter(s => !s.archived).map(s => <option key={s.id} value={s.id}>{s.name}</option>) : users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
                </select>
@@ -278,10 +295,13 @@ const NetworkManagement: React.FC<NetworkManagementProps> = ({ currentUser, curr
       {isStoreModalOpen && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[250] flex items-center justify-center p-4">
           <div className="bg-white rounded-[2rem] shadow-2xl max-w-md w-full overflow-hidden">
-            <div className="p-5 bg-brand-500 text-white flex justify-between items-center"><h3 className="font-black uppercase italic text-lg">{editingStore ? 'Editar Unidade' : 'Nova Loja'}</h3><button onClick={() => setIsStoreModalOpen(false)}><i className="ph ph-x text-2xl"></i></button></div>
+            <div className="p-5 bg-brand-500 text-white flex justify-between items-center">
+               <h3 className="font-black uppercase italic text-lg">{editingStore ? 'Editar Unidade' : 'Nova Loja'}</h3>
+               <button onClick={() => setIsStoreModalOpen(false)}><i className="ph ph-x text-2xl"></i></button>
+            </div>
             <form onSubmit={handleSaveStore} className="p-8 space-y-6">
-               <input value={storeName} onChange={e => setStoreName(e.target.value)} placeholder="NOME DA LOJA" className="w-full p-4 bg-slate-50 border rounded-2xl font-bold uppercase" />
-               <button type="submit" className="w-full py-4 bg-slate-900 text-white font-black rounded-2xl">Gravar Unidade</button>
+               <input value={storeName} onChange={e => setStoreName(e.target.value)} placeholder="NOME DA LOJA" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold uppercase text-slate-700 outline-none focus:border-brand-500" />
+               <button type="submit" className="w-full py-4 bg-slate-900 text-white font-black rounded-2xl shadow-xl hover:bg-black uppercase text-xs">Gravar Unidade</button>
             </form>
           </div>
         </div>
@@ -291,12 +311,18 @@ const NetworkManagement: React.FC<NetworkManagementProps> = ({ currentUser, curr
       {isUserModalOpen && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[250] flex items-center justify-center p-4">
           <div className="bg-white rounded-[2rem] shadow-2xl max-w-md w-full overflow-hidden">
-            <div className="p-5 bg-brand-500 text-white flex justify-between items-center"><h3 className="font-black uppercase italic text-lg">{editingUser ? 'Editar Acesso' : 'Novo Vendedor'}</h3><button onClick={() => setIsUserModalOpen(false)}><i className="ph ph-x text-2xl"></i></button></div>
+            <div className="p-5 bg-brand-500 text-white flex justify-between items-center">
+               <h3 className="font-black uppercase italic text-lg">{editingUser ? 'Editar Acesso' : 'Novo Vendedor'}</h3>
+               <button onClick={() => setIsUserModalOpen(false)}><i className="ph ph-x text-2xl"></i></button>
+            </div>
             <form onSubmit={handleSaveUser} className="p-8 space-y-4">
-               <input value={userName} onChange={e => setUserName(e.target.value)} placeholder="NOME" className="w-full p-3 bg-slate-50 border rounded-xl font-bold uppercase" />
-               <input type="password" value={userPassword} onChange={e => setUserPassword(e.target.value)} placeholder="SENHA" className="w-full p-3 bg-slate-50 border rounded-xl font-bold" />
-               <select value={userRole} onChange={e => setUserRole(e.target.value)} className="w-full p-3 bg-slate-50 border rounded-xl font-bold uppercase"><option value="vendedor">Vendedor</option><option value="admin">Gerente</option></select>
-               <button type="submit" className="w-full py-4 bg-slate-900 text-white font-black rounded-2xl">Salvar Equipe</button>
+               <input value={userName} onChange={e => setUserName(e.target.value)} placeholder="NOME" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold uppercase text-xs" />
+               <input type="password" value={userPassword} onChange={e => setUserPassword(e.target.value)} placeholder="SENHA" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-xs" />
+               <select value={userRole} onChange={e => setUserRole(e.target.value)} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold uppercase text-xs">
+                 <option value="vendedor">Vendedor Operador</option>
+                 <option value="admin">Administrador Gerente</option>
+               </select>
+               <button type="submit" className="w-full py-4 bg-slate-900 text-white font-black rounded-2xl shadow-xl hover:bg-black uppercase text-xs">Salvar Equipe</button>
             </form>
           </div>
         </div>

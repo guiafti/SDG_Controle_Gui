@@ -127,8 +127,8 @@ ipcMain.handle('save-manual-product', async (_, p: any) => {
 ipcMain.handle('save-sale', async (_, sale: any) => {
   try {
     const saleId = randomUUID();
-    await run(`INSERT INTO sales (id, total, discount, payment_method, vendedor, store_id, items, synced) VALUES (?, ?, ?, ?, ?, ?, ?, 0)`, 
-      [saleId, sale.total, sale.discount || 0, sale.payment_method, sale.vendedor, sale.store_id, JSON.stringify(sale.items)]);
+    await run(`INSERT INTO sales (id, total, discount, payment_method, vendedor, store_id, customer_id, items, synced) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)`, 
+      [saleId, sale.total, sale.discount || 0, sale.payment_method, sale.vendedor, sale.store_id, sale.customer_id || null, JSON.stringify(sale.items)]);
     for (const item of sale.items) {
       if (!String(item.id).startsWith('OS-')) await run(`UPDATE inventory SET quantity = quantity - ? WHERE product_id = ? AND store_id = ?`, [item.qtd, item.id, sale.store_id]);
     }
@@ -139,6 +139,7 @@ ipcMain.handle('save-sale', async (_, sale: any) => {
 });
 
 ipcMain.handle('get-customers', async () => await query('SELECT * FROM customers ORDER BY name ASC'));
+ipcMain.handle('get-sales-by-customer', async (_, customerId: string) => await query('SELECT * FROM sales WHERE customer_id = ? ORDER BY created_at DESC', [customerId]));
 ipcMain.handle('save-customer', async (_, c: any) => {
   try {
     const id = c.id || randomUUID();

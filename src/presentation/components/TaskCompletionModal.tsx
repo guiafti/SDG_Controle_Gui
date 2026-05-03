@@ -29,7 +29,7 @@ const TaskCompletionModal: React.FC<TaskCompletionModalProps> = ({ isOpen, onClo
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (needsJustification && !justification.trim()) {
-      return alert('Tarefa em atraso! Por favor, insira uma justificativa.');
+      return toast.error('Tarefa em atraso! Por favor, insira uma justificativa.');
     }
     onConfirm({ photo: photo || undefined, justification: justification || undefined });
   };

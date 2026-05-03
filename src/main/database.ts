@@ -67,7 +67,7 @@ export const initDatabase = async () => {
       period TEXT NOT NULL,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
-    CREATE TABLE IF NOT EXISTS sales (id TEXT PRIMARY KEY, total REAL NOT NULL, payment_method TEXT NOT NULL, vendedor TEXT NOT NULL, store_id TEXT, items TEXT NOT NULL, discount REAL DEFAULT 0, synced INTEGER DEFAULT 0, created_at DATETIME DEFAULT CURRENT_TIMESTAMP);
+    CREATE TABLE IF NOT EXISTS sales (id TEXT PRIMARY KEY, total REAL NOT NULL, payment_method TEXT NOT NULL, vendedor TEXT NOT NULL, store_id TEXT, customer_id TEXT, items TEXT NOT NULL, discount REAL DEFAULT 0, synced INTEGER DEFAULT 0, created_at DATETIME DEFAULT CURRENT_TIMESTAMP);
     CREATE TABLE IF NOT EXISTS commissions (id TEXT PRIMARY KEY, sale_id TEXT, vendedor TEXT NOT NULL, value REAL NOT NULL, percentage REAL NOT NULL, status TEXT DEFAULT 'pending', created_at DATETIME DEFAULT CURRENT_TIMESTAMP);
     CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT);
     CREATE TABLE IF NOT EXISTS expense_categories (id TEXT PRIMARY KEY, name TEXT UNIQUE NOT NULL);
@@ -145,6 +145,7 @@ export const initDatabase = async () => {
     { table: 'products', col: 'synced', type: 'INTEGER DEFAULT 0' },
     { table: 'products', col: 'image', type: 'TEXT' },
     { table: 'sales', col: 'synced', type: 'INTEGER DEFAULT 0' },
+    { table: 'sales', col: 'customer_id', type: 'TEXT' },
     { table: 'inventory', col: 'min_stock', type: 'INTEGER DEFAULT 2' },
     { table: 'inventory', col: 'sale_tolerance_days', type: 'INTEGER DEFAULT 30' },
     { table: 'maintenance_orders', col: 'payment_status', type: "TEXT DEFAULT 'pending'" },

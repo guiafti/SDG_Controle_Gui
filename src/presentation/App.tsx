@@ -205,14 +205,22 @@ const App: React.FC = () => {
     setCarrinho(prev => prev.map(item => item.id === id ? { ...item, qtd: novaQtd } : item));
   };
 
-  const handleFinishSale = async (paymentMethod: string) => {
+  const handleFinishSale = async (paymentMethod: string, customerId?: string) => {
     if (carrinho.length === 0) {
       toast.error('Caixa vazio!');
       return;
     }
     const subtotal = carrinho.reduce((acc, item) => acc + (item.preco * item.qtd), 0);
     const totalFinal = Math.max(0, subtotal - desconto);
-    const saleData = { total: totalFinal, discount: desconto, payment_method: paymentMethod, vendedor, store_id: lojaId, items: carrinho };
+    const saleData = { 
+      total: totalFinal, 
+      discount: desconto, 
+      payment_method: paymentMethod, 
+      vendedor, 
+      store_id: lojaId, 
+      customer_id: customerId,
+      items: carrinho 
+    };
     
     const loadingId = toast.loading('Finalizando venda...');
     try {
