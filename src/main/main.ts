@@ -5,7 +5,6 @@ import { pathToFileURL } from 'url';
 import { initDatabase, get, run, query } from './database';
 import { GuardianProtocol } from './GuardianProtocol';
 import { SyncEngine } from './SyncEngine';
-import { generateReceiptHTML } from './ReceiptTemplate';
 import { randomUUID } from 'node:crypto';
 import { createClient } from '@supabase/supabase-js';
 
@@ -30,7 +29,6 @@ const getSupabase = () => {
 
 process.on('uncaughtException', (error) => {
   logError(`FALHA CRÍTICA: ${error.message}`);
-  // app.quit(); // Evitar fechar em erro não fatal de rede
 });
 
 protocol.registerSchemesAsPrivileged([{ scheme: 'local-img', privileges: { standard: true, secure: true, supportFetchAPI: true } }]);
@@ -44,7 +42,6 @@ function createWindow() {
   });
   if (!app.isPackaged) {
     win.loadURL('http://127.0.0.1:5173');
-    // win.webContents.openDevTools();
   } else {
     win.loadFile(path.join(__dirname, '..', 'index.html'));
   }
@@ -59,14 +56,10 @@ app.whenReady().then(async () => {
 
   protocol.handle('local-img', (request) => {
     const fileName = path.basename(decodeURIComponent(request.url.replace('local-img://', '')));
-    
-    // Tenta encontrar na pasta de produtos primeiro
     let filePath = path.join(app.getPath('userData'), 'product_images', fileName);
     if (!fs.existsSync(filePath)) {
-      // Se não achar, tenta na pasta de reparos
       filePath = path.join(app.getPath('userData'), 'repair_images', fileName);
     }
-
     if (!fs.existsSync(filePath)) return new Response('Not Found', { status: 404 });
     return net.fetch(pathToFileURL(filePath).toString());
   });
@@ -85,8 +78,6 @@ ipcMain.handle('get-app-title', async () => (await get('SELECT value FROM settin
 
 ipcMain.handle('get-all-products', async () => {
   const supabase = getSupabase();
-
-  // Se houver nuvem, tentamos puxar atualizações em background, mas SEM bloquear o retorno local
   if (supabase) {
     supabase.from('products').select('*').then(async ({ data: products }) => {
       if (products) {
@@ -100,10 +91,8 @@ ipcMain.handle('get-all-products', async () => {
       }
     }).catch(() => {});
   }
-
   const products = await query('SELECT * FROM products ORDER BY archived ASC, name ASC');
   const inventory = await query('SELECT * FROM inventory');
-
   return products.map(p => {
     const stocks: any = {};
     inventory.filter(i => i.product_id === p.id).forEach(i => stocks[i.store_id] = i.quantity);
@@ -118,7 +107,6 @@ ipcMain.handle('save-manual-product', async (_, p: any) => {
     const barcode = cleanBarcode(p.barcode);
     const price = Number(p.price) || 0;
     const image = p.image || null;
-
     if (p.id) {
       await run('UPDATE products SET name = ?, barcode = ?, price = ?, image = ?, synced = 0 WHERE id = ?', [name, barcode, price, image, id]);
     } else {
@@ -128,10 +116,7 @@ ipcMain.handle('save-manual-product', async (_, p: any) => {
         await run('INSERT OR IGNORE INTO inventory (product_id, store_id, quantity) VALUES (?, ?, 0)', [id, s.id]);
       }
     }
-
-    // Forçar uma tentativa de sincronização imediata
     SyncEngine.syncPendingProducts().catch(() => {});
-
     return { success: true };
   } catch (error: any) {
     logError(`Erro ao salvar produto: ${error.message}`);
@@ -190,27 +175,13 @@ ipcMain.handle('save-repair', async (_, repair: any) => {
       (id, customer_name, customer_phone, device_brand, device_model, serial_number, issue_description, technical_notes, checklist, priority, photo_url, price, entry_store_id, maintenance_store_id, return_store_id, current_store_id, status, payment_status, delivery_date, synced, updated_at) 
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, CURRENT_TIMESTAMP)`, 
       [
-        id, 
-        repair.customer_name, 
-        repair.customer_phone, 
-        repair.device_brand, 
-        repair.device_model, 
-        repair.serial_number || '', 
-        repair.issue_description, 
-        repair.technical_notes || '', 
-        repair.checklist || '', 
-        repair.priority || 'normal', 
-        repair.photo_url, 
-        repair.price || 0, 
-        repair.entry_store_id, 
-        repair.maintenance_store_id, 
-        repair.return_store_id, 
-        repair.current_store_id || repair.entry_store_id, 
-        repair.status || 'Na Loja (Aguardando Envio)', 
-        repair.payment_status || 'pending',
-        repair.delivery_date || ''
+        id, repair.customer_name, repair.customer_phone, repair.device_brand, repair.device_model, 
+        repair.serial_number || '', repair.issue_description, repair.technical_notes || '', 
+        repair.checklist || '', repair.priority || 'normal', repair.photo_url, repair.price || 0, 
+        repair.entry_store_id, repair.maintenance_store_id, repair.return_store_id, 
+        repair.current_store_id || repair.entry_store_id, repair.status || 'Na Loja (Aguardando Envio)', 
+        repair.payment_status || 'pending', repair.delivery_date || ''
       ]);
-    
     SyncEngine.syncPendingRepairs().catch(() => {});
     return { success: true, id };
   } catch (err: any) {
@@ -224,9 +195,7 @@ ipcMain.handle('update-repair-status', async (_, { id, status, current_store_id 
     await run('UPDATE maintenance_orders SET status = ?, current_store_id = ?, synced = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [status, current_store_id, id]);
     SyncEngine.syncPendingRepairs().catch(() => {});
     return { success: true };
-  } catch (err: any) {
-    return { success: false, error: err.message };
-  }
+  } catch (err: any) { return { success: false, error: err.message }; }
 });
 
 ipcMain.handle('update-repair-notes', async (_, { id, technical_notes }) => {
@@ -234,9 +203,7 @@ ipcMain.handle('update-repair-notes', async (_, { id, technical_notes }) => {
     await run('UPDATE maintenance_orders SET technical_notes = ?, synced = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [technical_notes, id]);
     SyncEngine.syncPendingRepairs().catch(() => {});
     return { success: true };
-  } catch (err: any) {
-    return { success: false, error: err.message };
-  }
+  } catch (err: any) { return { success: false, error: err.message }; }
 });
 
 ipcMain.handle('update-repair-payment', async (_, { id, payment_status }) => {
@@ -244,9 +211,7 @@ ipcMain.handle('update-repair-payment', async (_, { id, payment_status }) => {
     await run('UPDATE maintenance_orders SET payment_status = ?, synced = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [payment_status, id]);
     SyncEngine.syncPendingRepairs().catch(() => {});
     return { success: true };
-  } catch (err: any) {
-    return { success: false, error: err.message };
-  }
+  } catch (err: any) { return { success: false, error: err.message }; }
 });
 
 ipcMain.handle('upload-repair-image', async (_, { id, base64Data }) => {
@@ -274,12 +239,11 @@ ipcMain.handle('get-low-stock-items', async () => {
 
 ipcMain.handle('get-stale-stock-items', async () => {
   const products = await query(`SELECT p.id, p.name, p.barcode FROM products p WHERE p.archived = 0 AND EXISTS (SELECT 1 FROM inventory WHERE product_id = p.id AND quantity > 0) LIMIT 20`);
-  return products.map(p => ({ ...p, stocks: {} })); // Simplificado para evitar erro
+  return products.map(p => ({ ...p, stocks: {} }));
 });
 
 ipcMain.handle('get-commissions', async () => await query('SELECT * FROM commissions ORDER BY created_at DESC'));
 
-// --- FINANCEIRO ---
 ipcMain.handle('get-expenses', async () => await query('SELECT e.*, c.name as category_name FROM expenses e LEFT JOIN expense_categories c ON e.category_id = c.id ORDER BY e.date DESC'));
 ipcMain.handle('save-expense', async (_, exp: any) => {
   const id = exp.id || randomUUID();
@@ -306,33 +270,18 @@ ipcMain.handle('get-financial-summary', async () => {
   const sales = await get('SELECT SUM(total) as total FROM sales');
   const expenses = await get('SELECT SUM(value) as total FROM expenses');
   const commissions = await get('SELECT SUM(value) as total FROM commissions');
-  
-  // Margem de lucro estimada baseada em cost_price se disponível
-  // Para fins de demonstração inicial, calculamos a margem baseada nos itens vendidos
   const saleRecords = await query('SELECT items FROM sales');
   let totalCost = 0;
   for (const s of saleRecords) {
     try {
         const items = JSON.parse(s.items);
         for (const item of items) {
-            // Busca o preço de custo real do produto no banco
             const p = await get('SELECT cost_price FROM products WHERE id = ?', [item.id]);
-            totalCost += (p?.cost_price || (item.preco * 0.6)) * item.qtd; // Fallback 60% se não tiver cost_price
+            totalCost += (p?.cost_price || (item.preco * 0.6)) * item.qtd;
         }
     } catch(e) {}
   }
-
-  // Dados de tendência (últimos 6 meses)
-  const trends = await query(`
-    SELECT 
-        strftime('%m/%Y', created_at) as month,
-        SUM(total) as inflow
-    FROM sales 
-    GROUP BY month 
-    ORDER BY created_at DESC 
-    LIMIT 6
-  `);
-
+  const trends = await query(`SELECT strftime('%m/%Y', created_at) as month, SUM(total) as inflow FROM sales GROUP BY month ORDER BY created_at DESC LIMIT 6`);
   return {
     totalInflow: sales?.total || 0,
     totalOutflow: (expenses?.total || 0) + (commissions?.total || 0),
@@ -348,7 +297,6 @@ ipcMain.handle('get-dashboard-stats', async () => ({
 }));
 
 ipcMain.handle('import-xml-products', async (_, data, storeId) => await GuardianProtocol.bulkInsert(GuardianProtocol.validate(GuardianProtocol.parseXML(data, storeId))));
-ipcMain.handle('download-protocol-template', async () => `<?xml version="1.0" encoding="UTF-8"?><products><item><barcode>2024</barcode><name>EXEMPLO</name><price>50.00</price><quantity>100</quantity></item></products>`);
 ipcMain.handle('get-settings', async () => await query('SELECT * FROM settings'));
 ipcMain.handle('save-settings', async (_, arr) => {
   for (const s of arr) {
@@ -363,31 +311,16 @@ ipcMain.handle('update-inventory-quantity', async (_, { productId, storeId, quan
   const qty = Number(quantity) || 0;
   const min = Number(minStock) ?? 2;
   const stale = Number(saleToleranceDays) ?? 30;
-
-  // 1. Salva no Supabase imediatamente se possível
   const supabase = getSupabase();
   if (supabase) {
     try {
-      const { error } = await supabase.from('inventory').upsert({
-        product_id: productId,
-        store_id: storeId,
-        quantity: qty,
-        min_stock: min,
-        sale_tolerance_days: stale
-      });
-      if (error) logError(`Erro Supabase Inventory: ${error.message}`);
-      else logError(`Estoque atualizado na Nuvem: Prod ${productId} Loja ${storeId} Qtd ${qty}`);
-    } catch (e) {
-      logError(`Erro Fatal Inventory Cloud: ${e}`);
-    }
+      await supabase.from('inventory').upsert({ product_id: productId, store_id: storeId, quantity: qty, min_stock: min, sale_tolerance_days: stale });
+    } catch (e) {}
   }
-
-  // 2. Salva no banco local
-  await run('INSERT OR REPLACE INTO inventory (product_id, store_id, quantity, min_stock, sale_tolerance_days) VALUES (?, ?, ?, ?, ?)', 
-    [productId, storeId, qty, min, stale]);
-  
+  await run('INSERT OR REPLACE INTO inventory (product_id, store_id, quantity, min_stock, sale_tolerance_days) VALUES (?, ?, ?, ?, ?)', [productId, storeId, qty, min, stale]);
   return { success: true };
 });
+
 ipcMain.handle('get-product-by-barcode', async (_, bc, sid) => {
   const p = await get('SELECT * FROM products WHERE barcode = ? AND archived = 0', [cleanBarcode(bc)]);
   if (!p) return null;
@@ -406,16 +339,32 @@ ipcMain.handle('upload-product-image', async (_, { barcode, base64Data }) => {
   } catch (error) { return { success: false }; }
 });
 
+import { generateRepairReceiptHTML, generateReceiptHTML } from './ReceiptTemplate';
+
+// --- IMPRESSÃO ---
+
+ipcMain.handle('print-repair-receipt', async (_, { repair, storeName, logo }) => {
+  try {
+    const html = generateRepairReceiptHTML(repair, storeName, logo);
+    const tmp = path.join(app.getPath('userData'), 'print_os.html');
+    fs.writeFileSync(tmp, html);
+    const win = new BrowserWindow({ show: false, webPreferences: { nodeIntegration: false, contextIsolation: true } });
+    await win.loadFile(tmp);
+    setTimeout(() => { if (!win.isDestroyed()) win.close(); }, 5000);
+    return { success: true };
+  } catch (e: any) { return { success: false, error: e.message }; }
+});
+
 ipcMain.handle('print-receipt', async (_, { sale, storeName, logo }) => {
-  const printWin = new BrowserWindow({ show: false, webPreferences: { nodeIntegration: true } });
-  const html = generateReceiptHTML(sale, storeName, logo);
-  
-  // Use data URL to load the HTML directly
-  const dataUrl = `data:text/html;charset=utf-8,${encodeURIComponent(html)}`;
-  await printWin.loadURL(dataUrl);
-  
-  // The script inside the HTML will handle window.print() and window.close()
-  return { success: true };
+  try {
+    const html = generateReceiptHTML(sale, storeName, logo);
+    const tmp = path.join(app.getPath('userData'), 'print_sale.html');
+    fs.writeFileSync(tmp, html);
+    const win = new BrowserWindow({ show: false, webPreferences: { nodeIntegration: false, contextIsolation: true } });
+    await win.loadFile(tmp);
+    setTimeout(() => { if (!win.isDestroyed()) win.close(); }, 5000);
+    return { success: true };
+  } catch (e: any) { return { success: false, error: e.message }; }
 });
 
 ipcMain.on('window-minimize', (e) => BrowserWindow.fromWebContents(e.sender)?.minimize());

@@ -37,6 +37,7 @@ contextBridge.exposeInMainWorld('api', {
   archiveProduct: (data: {id: string, archived: boolean}) => ipcRenderer.invoke('archive-product', data),
   updateInventoryQuantity: (data: {productId: string, store_id: string, quantity: number}) => ipcRenderer.invoke('update-inventory-quantity', data),
   printReceipt: (data: {sale: any, storeName: string, logo?: string}) => ipcRenderer.invoke('print-receipt', data),
+  printRepairReceipt: (data: {repair: any, storeName: string, logo?: string}) => ipcRenderer.invoke('print-repair-receipt', data),
   uploadProductImage: (data: {barcode: string, base64Data: string}) => ipcRenderer.invoke('upload-product-image', data),
   isCloudConfigured: () => ipcRenderer.invoke('is-cloud-configured'),
   getAppTitle: () => ipcRenderer.invoke('get-app-title'),
