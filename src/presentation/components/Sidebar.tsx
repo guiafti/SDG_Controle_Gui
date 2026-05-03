@@ -91,27 +91,11 @@ const Sidebar: React.FC<SidebarProps> = ({ activeView, onSwitchView, onOpenPDV, 
             <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-4 mb-1 ml-2">Gestão</div>
 
             <button 
-              onClick={() => onSwitchView('comissoes')}
-              className={`nav-btn w-full flex items-center gap-3 px-4 py-2.5 rounded-xl font-bold text-xs transition-all ${activeView === 'comissoes' ? 'bg-white/10 text-white border border-white/5 shadow-inner' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
+              onClick={() => onSwitchView('network')}
+              className={`nav-btn w-full flex items-center gap-3 px-4 py-2.5 rounded-xl font-bold text-xs transition-all ${activeView === 'network' ? 'bg-white/10 text-white border border-white/5 shadow-inner' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
             >
-              <i className="ph ph-hand-coins text-xl"></i>
-              Comissões
-            </button>
-
-            <button 
-              onClick={() => onSwitchView('users')}
-              className={`nav-btn w-full flex items-center gap-3 px-4 py-2.5 rounded-xl font-bold text-xs transition-all ${activeView === 'users' ? 'bg-white/10 text-white border border-white/5 shadow-inner' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
-            >
-              <i className="ph ph-users-three text-xl"></i>
-              Equipe
-            </button>
-
-            <button 
-              onClick={() => onSwitchView('stores')}
-              className={`nav-btn w-full flex items-center gap-3 px-4 py-2.5 rounded-xl font-bold text-xs transition-all ${activeView === 'stores' ? 'bg-white/10 text-white border border-white/5 shadow-inner' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
-            >
-              <i className="ph ph-buildings text-xl"></i>
-              Lojas
+              <i className="ph ph-tree-structure text-xl"></i>
+              Gestão de Rede
             </button>
 
             <button 

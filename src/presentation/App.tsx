@@ -11,15 +11,13 @@ import Sidebar from './components/Sidebar';
 import AdminHeader from './components/AdminHeader';
 import ProductSearchModal from './components/ProductSearchModal';
 import Dashboard from './pages/Dashboard';
-import Commissions from './pages/Commissions';
 import Inventory from './pages/Inventory';
-import Users from './pages/Users';
-import Stores from './pages/Stores';
 import Settings from './pages/Settings';
 import Repairs from './pages/Repairs';
 import FinancialControl from './pages/FinancialControl';
 import CRM from './pages/CRM';
 import Analytics from './pages/Analytics';
+import NetworkManagement from './pages/NetworkManagement';
 import { CartItem } from '../domain/CartItem';
 
 import TitleBar from './components/TitleBar';
@@ -228,14 +226,12 @@ const App: React.FC = () => {
     switch (adminSubView) {
       case 'dashboard': return <Dashboard />;
       case 'inventory': return <Inventory role={userRole} />;
-      case 'comissoes': return <Commissions />;
-      case 'users': return <Users />;
-      case 'stores': return <Stores />;
       case 'settings': return <Settings />;
       case 'repairs': return <Repairs />;
       case 'financeiro': return <FinancialControl />;
       case 'crm': return <CRM />;
       case 'analytics': return <Analytics />;
+      case 'network': return <NetworkManagement />;
       default: return <Dashboard />;
     }
   };
@@ -276,13 +272,12 @@ const App: React.FC = () => {
               <AdminHeader title={
                 adminSubView === 'dashboard' ? 'Visão Geral (Dashboard)' : 
                 adminSubView === 'inventory' ? 'Gestão de Estoque' : 
-                adminSubView === 'comissoes' ? 'Comissões' : 
                 adminSubView === 'settings' ? 'Personalização' : 
-                adminSubView === 'stores' ? 'Gerenciamento de Lojas' : 
                 adminSubView === 'repairs' ? 'Assistência Técnica' : 
                 adminSubView === 'financeiro' ? 'Controle Financeiro' : 
                 adminSubView === 'crm' ? 'CRM - Gestão de Clientes' : 
-                adminSubView === 'analytics' ? 'Análise Preditiva' : 'Gestão de Equipe'
+                adminSubView === 'analytics' ? 'Análise Preditiva' : 
+                adminSubView === 'network' ? 'Gestão de Rede Profissional' : 'Operação Interna'
               } />
               {renderAdminView()}
             </main>
