@@ -204,26 +204,33 @@ const FinancialControl: React.FC = () => {
                         <thead className="bg-slate-50 border-b border-slate-100">
                             <tr>
                                 <th className="px-6 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Data</th>
-                                <th className="px-6 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Descrição</th>
-                                <th className="px-6 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Categoria</th>
+                                <th className="px-6 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Descrição / Operador</th>
+                                <th className="px-6 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Tipo / Categoria</th>
                                 <th className="px-6 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Pagamento</th>
                                 <th className="px-6 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-wider text-right">Valor</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-50">
-                            {expenses.length === 0 ? (
-                                <tr><td colSpan={5} className="px-6 py-20 text-center text-slate-300 font-bold uppercase text-xs">Nenhum lançamento encontrado</td></tr>
-                            ) : expenses.map(exp => (
-                                <tr key={exp.id} className="hover:bg-slate-50 transition-colors">
-                                    <td className="px-6 py-3.5 text-xs font-medium text-slate-500">{new Date(exp.date).toLocaleDateString()}</td>
-                                    <td className="px-6 py-3.5 text-xs font-bold text-slate-800 uppercase">{exp.description}</td>
-                                    <td className="px-6 py-3.5">
-                                        <span className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded text-[9px] font-bold uppercase tracking-tight">{exp.category_name}</span>
-                                    </td>
-                                    <td className="px-6 py-3.5 text-[9px] font-bold text-slate-400 uppercase">{exp.payment_method}</td>
-                                    <td className="px-6 py-3.5 text-right font-mono font-bold text-red-500 text-xs">-{exp.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
-                                </tr>
-                            ))}
+                            {summary.ledger.length === 0 ? (
+                                <tr><td colSpan={5} className="px-6 py-20 text-center text-slate-300 font-bold uppercase text-xs">Nenhum registro no fluxo de caixa</td></tr>
+                            ) : summary.ledger.map((item: any) => {
+                                const isEntry = item.type === 'ENTRADA (VENDA)';
+                                return (
+                                    <tr key={item.id} className="hover:bg-slate-50 transition-colors">
+                                        <td className="px-6 py-3.5 text-xs font-medium text-slate-500">{new Date(item.date).toLocaleDateString()}</td>
+                                        <td className="px-6 py-3.5 text-xs font-bold text-slate-800 uppercase">{item.description}</td>
+                                        <td className="px-6 py-3.5">
+                                            <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-tight ${isEntry ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>
+                                                {item.type}
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-3.5 text-[9px] font-bold text-slate-400 uppercase">{item.payment_method}</td>
+                                        <td className={`px-6 py-3.5 text-right font-mono font-bold text-xs ${isEntry ? 'text-emerald-600' : 'text-red-500'}`}>
+                                            {isEntry ? '+' : '-'}{item.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                        </td>
+                                    </tr>
+                                );
+                            })}
                         </tbody>
                     </table>
                 </div>

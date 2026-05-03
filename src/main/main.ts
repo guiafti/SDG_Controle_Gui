@@ -332,28 +332,43 @@ ipcMain.handle('save-budget', async (_, b: any) => {
 });
 
 ipcMain.handle('get-financial-summary', async () => {
-  const sales = await get('SELECT SUM(total) as total FROM sales');
-  const expenses = await get('SELECT SUM(value) as total FROM expenses');
-  const commissions = await get('SELECT SUM(value) as total FROM commissions');
-  const saleRecords = await query('SELECT items FROM sales');
-  let totalCost = 0;
-  for (const s of saleRecords) {
-    try {
-        const items = JSON.parse(s.items);
-        for (const item of items) {
-            const p = await get('SELECT cost_price FROM products WHERE id = ?', [item.id]);
-            totalCost += (p?.cost_price || (item.preco * 0.6)) * item.qtd;
-        }
-    } catch(e) {}
+  try {
+    const sales = await get('SELECT SUM(total) as total FROM sales');
+    const expenses = await get('SELECT SUM(value) as total FROM expenses');
+    const commissions = await get('SELECT SUM(value) as total FROM commissions');
+    
+    // Last 50 transactions consolidated
+    const recentSales = await query('SELECT id, total as value, created_at as date, vendedor as description, payment_method, "ENTRADA (VENDA)" as type FROM sales ORDER BY created_at DESC LIMIT 50');
+    const recentExpenses = await query('SELECT e.id, e.value, e.date, e.description, e.payment_method, c.name as type FROM expenses e LEFT JOIN expense_categories c ON e.category_id = c.id ORDER BY e.date DESC LIMIT 50');
+    
+    const ledger = [...recentSales, ...recentExpenses].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 50);
+
+    const saleRecords = await query('SELECT items FROM sales');
+    let totalCost = 0;
+    for (const s of saleRecords) {
+      try {
+          const items = JSON.parse(s.items);
+          for (const item of items) {
+              const p = await get('SELECT cost_price FROM products WHERE id = ?', [item.id]);
+              totalCost += (p?.cost_price || (item.preco * 0.6)) * item.qtd;
+          }
+      } catch(e) {}
+    }
+
+    const trends = await query(`SELECT strftime('%m/%Y', created_at) as month, SUM(total) as inflow FROM sales GROUP BY month ORDER BY created_at DESC LIMIT 6`);
+
+    return {
+      totalInflow: sales?.total || 0,
+      totalOutflow: (expenses?.total || 0) + (commissions?.total || 0),
+      netProfit: (sales?.total || 0) - (expenses?.total || 0) - (commissions?.total || 0),
+      estimatedCost: totalCost,
+      trends: trends.reverse(),
+      ledger
+    };
+  } catch (err: any) {
+    console.error('Erro no resumo financeiro:', err);
+    return { totalInflow: 0, totalOutflow: 0, netProfit: 0, estimatedCost: 0, trends: [], ledger: [] };
   }
-  const trends = await query(`SELECT strftime('%m/%Y', created_at) as month, SUM(total) as inflow FROM sales GROUP BY month ORDER BY created_at DESC LIMIT 6`);
-  return {
-    totalInflow: sales?.total || 0,
-    totalOutflow: (expenses?.total || 0) + (commissions?.total || 0),
-    netProfit: (sales?.total || 0) - (expenses?.total || 0) - (commissions?.total || 0),
-    estimatedCost: totalCost,
-    trends: trends.reverse()
-  };
 });
 
 ipcMain.handle('get-dashboard-stats', async () => ({

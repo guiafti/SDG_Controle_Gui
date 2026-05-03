@@ -283,7 +283,7 @@ const NetworkManagement: React.FC<NetworkManagementProps> = ({ currentUser, curr
                </div>
                <select value={taskAssigneeId} onChange={e => setTaskAssigneeId(e.target.value)} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold uppercase text-xs outline-none">
                  <option value="">SELECIONE O DESTINATÁRIO... *</option>
-                 {taskAssigneeType === 'store' ? stores.filter(s => !s.archived).map(s => <option key={s.id} value={s.id}>{s.name}</option>) : users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+                 {taskAssigneeType === 'store' ? stores.filter(s => !s.archived).map(s => <option key={s.id} value={s.id}>{s.name}</option>) : users.map(u => <option key={u.id} value={u.name}>{u.name}</option>)}
                </select>
                <button type="submit" className="w-full py-4 bg-brand-500 text-white font-black rounded-2xl shadow-xl hover:bg-brand-600 uppercase text-xs transition-all">ATRIBUIR MISSÃO</button>
             </form>
