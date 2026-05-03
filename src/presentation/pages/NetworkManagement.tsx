@@ -24,9 +24,10 @@ const NetworkManagement: React.FC<NetworkManagementProps> = ({ currentUser, curr
   const [isStoreModalOpen, setIsStoreModalOpen] = useState(false);
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
-  const [selectedTask, setSelectedTask] = useState<any>(null);
+  const [selectedTaskForCompletion, setSelectedTaskForCompletion] = useState<any>(null);
   const [editingStore, setEditingStore] = useState<any>(null);
   const [editingUser, setEditingUser] = useState<any>(null);
+  const [editingTask, setEditingTask] = useState<any>(null);
 
   const [storeName, setStoreName] = useState('');
   const [userName, setUserName] = useState('');
@@ -61,12 +62,24 @@ const NetworkManagement: React.FC<NetworkManagementProps> = ({ currentUser, curr
     return () => clearInterval(i);
   }, []);
 
+  const openTaskModal = (t: any = null) => {
+    setEditingTask(t);
+    setTaskTitle(t?.title || '');
+    setTaskAssigneeType(t?.assignee_type || 'store');
+    setTaskAssigneeId(t?.assignee_id || '');
+    setTaskDueDate(t?.due_date || '');
+    setTaskIsRoutine(t?.is_routine === 1);
+    setTaskProofRequired(t?.proof_required === 1);
+    setIsTaskModalOpen(true);
+  };
+
   const handleSaveTask = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!taskTitle || !taskAssigneeId) return toast.error('PREENCHA TUDO');
-    const loadingId = toast.loading('Enviando missão...');
+    const loadingId = toast.loading(editingTask ? 'Atualizando missão...' : 'Enviando missão...');
     try {
       const res = await window.api.saveTask({ 
+        id: editingTask?.id,
         title: taskTitle.toUpperCase(), 
         assignee_type: taskAssigneeType, 
         assignee_id: taskAssigneeId, 
@@ -75,9 +88,10 @@ const NetworkManagement: React.FC<NetworkManagementProps> = ({ currentUser, curr
         proof_required: taskProofRequired ? 1 : 0 
       });
       if (res.success) {
-        toast.success('COMANDO ENVIADO!', { id: loadingId });
+        toast.success(editingTask ? 'MISSÃO ATUALIZADA!' : 'COMANDO ENVIADO!', { id: loadingId });
         setIsTaskModalOpen(false); 
         setTaskTitle(''); 
+        setEditingTask(null);
         fetchData();
       } else {
         toast.error('ERRO: ' + (res.error || 'Falha ao salvar'), { id: loadingId });
@@ -100,9 +114,9 @@ const NetworkManagement: React.FC<NetworkManagementProps> = ({ currentUser, curr
   };
 
   const handleConfirmCompletion = async (data: any) => {
-    if (!selectedTask) return;
-    const res = await window.api.completeTask(selectedTask.id, data.photo, data.justification);
-    if (res.success) { toast.success('OK!'); setSelectedTask(null); fetchData(); }
+    if (!selectedTaskForCompletion) return;
+    const res = await window.api.completeTask(selectedTaskForCompletion.id, data.photo, data.justification);
+    if (res.success) { toast.success('FEITO!'); setSelectedTaskForCompletion(null); fetchData(); }
   };
 
   const toggleTaskStatus = async (id: string, currentStatus: string) => {
@@ -110,10 +124,15 @@ const NetworkManagement: React.FC<NetworkManagementProps> = ({ currentUser, curr
     if (res.success) { toast.success('OK'); fetchData(); }
   };
 
+  // PRIVACY FILTER: Employees only see their own tasks. Admins see everything.
   const myTasks = tasks.filter(t => {
     if (currentUser?.role === 'admin') return true;
     if (t.status !== 'pending') return false;
-    return (t.assignee_type === 'store' && t.assignee_id === currentStoreId) || (t.assignee_id === currentUser?.name);
+    
+    const isForMyStore = t.assignee_type === 'store' && t.assignee_id === currentStoreId;
+    const isForMe = t.assignee_type === 'user' && t.assignee_id === currentUser?.name;
+    
+    return isForMyStore || isForMe;
   });
 
   const handleSaveStore = async (e: React.FormEvent) => {
@@ -139,17 +158,17 @@ const NetworkManagement: React.FC<NetworkManagementProps> = ({ currentUser, curr
     <div className="flex-1 flex flex-col h-full bg-slate-50 animate-in fade-in duration-500 overflow-hidden">
       <main className="p-4 md:p-6 space-y-4 flex-1 overflow-y-auto custom-scrollbar">
         
-        {/* TOP: MISSION CONTROL (ADMIN SUMMARY) */}
+        {/* TOP: CENTRAL COMMAND (ADMIN) */}
         {currentUser?.role === 'admin' && (
           <div className="bg-slate-900 rounded-3xl p-6 shadow-2xl relative overflow-hidden border border-slate-800 mb-2">
             <div className="absolute top-0 right-0 w-32 h-32 bg-brand-500/10 rounded-full blur-3xl -mr-10 -mt-10"></div>
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 relative z-10">
+            <div className="flex flex-col md:flex-row justify-between items-center gap-6 relative z-10">
                <div>
                   <h1 className="text-2xl font-bold text-white tracking-tight uppercase italic">Hub de Gestão de Rede</h1>
                   <p className="text-brand-400 text-[10px] font-bold uppercase tracking-widest">Controle Profissional de Unidades e Processos</p>
                </div>
                <button 
-                 onClick={() => { setEditingUser(null); setIsTaskModalOpen(true); }} 
+                 onClick={() => openTaskModal()} 
                  className="bg-brand-500 hover:bg-brand-600 text-white px-8 py-3 rounded-2xl font-black text-xs uppercase shadow-lg shadow-brand-500/20 transition-all active:scale-95"
                >
                  + Atribuir Nova Missão
@@ -174,27 +193,37 @@ const NetworkManagement: React.FC<NetworkManagementProps> = ({ currentUser, curr
             <div className="p-4 space-y-2 animate-in slide-in-from-top-1">
                {myTasks.length === 0 ? <p className="text-center py-10 text-slate-300 font-bold uppercase text-[10px]">Operação em dia na sua estação</p> : myTasks.map(t => (
                  <div key={t.id} className={`p-4 rounded-2xl border flex items-center justify-between transition-all ${t.status === 'completed' ? 'opacity-40 bg-slate-50' : 'bg-white border-slate-200 hover:border-brand-500 shadow-sm'}`}>
-                    <div className="flex-1 min-w-0">
+                    <div className="flex-1 min-w-0" onClick={() => currentUser?.role === 'admin' ? openTaskModal(t) : null}>
                        <div className="flex items-center gap-2">
                           <p className="text-sm font-bold uppercase text-slate-800 truncate">{t.title}</p>
                           {t.is_routine === 1 && <span className="text-[7px] font-black bg-purple-100 text-purple-600 px-1.5 py-0.5 rounded">DIÁRIO</span>}
                           {t.proof_required === 1 && <span className="text-[7px] font-black bg-orange-100 text-orange-600 px-1.5 py-0.5 rounded">FOTO</span>}
+                          {currentUser?.role === 'admin' && (
+                            <span className="text-[7px] font-bold text-brand-500 uppercase flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <i className="ph ph-pencil-simple"></i> Clique para Editar
+                            </span>
+                          )}
                        </div>
-                       <p className="text-[9px] text-slate-400 font-bold uppercase mt-1 italic">Prazo: {t.due_date || 'Imediato'}</p>
+                       <div className="flex items-center gap-3 mt-1">
+                          <p className="text-[9px] text-slate-400 font-bold uppercase italic">Prazo: {t.due_date || 'Imediato'}</p>
+                          {currentUser?.role === 'admin' && (
+                             <span className="text-[8px] font-black text-brand-600 bg-brand-50 px-1.5 rounded uppercase">Para: {t.assignee_id}</span>
+                          )}
+                       </div>
                        {t.justification && <p className="text-[9px] text-orange-600 font-medium italic mt-2">Justificativa: "{t.justification}"</p>}
                     </div>
                     <div className="flex gap-2">
                       {currentUser?.role === 'admin' && (
                         confirmingDeleteId === t.id ? (
                           <div className="flex items-center gap-2 animate-in fade-in slide-in-from-right-2">
-                            <button onClick={(e) => { e.stopPropagation(); setConfirmingDeleteId(null); }} className="px-3 py-1.5 bg-slate-100 text-slate-500 text-[8px] font-black uppercase rounded-lg">Cancelar</button>
-                            <button onClick={(e) => { e.stopPropagation(); handleDeleteTask(t.id); }} className="px-3 py-1.5 bg-red-500 text-white text-[8px] font-black uppercase rounded-lg shadow-lg">Apagar</button>
+                            <button onClick={(e) => { e.stopPropagation(); setConfirmingDeleteId(null); }} className="px-3 py-1.5 bg-slate-100 text-slate-500 text-[8px] font-black uppercase rounded-lg">Sair</button>
+                            <button onClick={(e) => { e.stopPropagation(); handleDeleteTask(t.id); }} className="px-3 py-1.5 bg-red-500 text-white text-[8px] font-black uppercase rounded-lg shadow-lg">Deletar</button>
                           </div>
                         ) : (
                           <button onClick={(e) => { e.stopPropagation(); setConfirmingDeleteId(t.id); }} className="p-2 text-slate-300 hover:text-red-500 transition-colors"><i className="ph ph-trash text-xl"></i></button>
                         )
                       )}
-                      <button onClick={() => t.status === 'pending' ? setSelectedTask(t) : toggleTaskStatus(t.id, t.status)} className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${t.status === 'completed' ? 'bg-slate-200 text-slate-500' : 'bg-brand-500 text-white shadow-lg shadow-brand-500/10'}`}>
+                      <button onClick={() => t.status === 'pending' ? setSelectedTaskForCompletion(t) : toggleTaskStatus(t.id, t.status)} className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${t.status === 'completed' ? 'bg-slate-200 text-slate-500' : 'bg-brand-500 text-white shadow-lg shadow-brand-500/10'}`}>
                         {t.status === 'completed' ? 'REABRIR' : 'OK'}
                       </button>
                     </div>
@@ -255,21 +284,33 @@ const NetworkManagement: React.FC<NetworkManagementProps> = ({ currentUser, curr
         )}
       </main>
 
-      {/* MISSION MODAL */}
+      {/* MISSION MODAL (CREATE/EDIT) */}
       {isTaskModalOpen && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[250] flex items-center justify-center p-4 animate-in fade-in duration-200">
           <div className="bg-white rounded-[2.5rem] shadow-2xl max-w-lg w-full overflow-hidden animate-in zoom-in duration-200">
             <div className="p-6 bg-slate-900 text-white flex justify-between items-center">
-               <h3 className="font-black uppercase italic tracking-tight text-lg">Definir Missão</h3>
-               <button onClick={() => setIsTaskModalOpen(false)} className="w-10 h-10 rounded-full hover:bg-white/10 flex items-center justify-center"><i className="ph ph-x text-2xl"></i></button>
+               <div>
+                  <h3 className="font-black uppercase italic tracking-tight text-lg">{editingTask ? 'Editar Missão' : 'Definir Missão'}</h3>
+                  <p className="text-[9px] text-brand-400 font-bold uppercase tracking-widest">Comando de Operação da Rede</p>
+               </div>
+               <button onClick={() => { setIsTaskModalOpen(false); setEditingTask(null); }} className="w-10 h-10 rounded-full hover:bg-white/10 flex items-center justify-center"><i className="ph ph-x text-2xl"></i></button>
             </div>
             <form onSubmit={handleSaveTask} className="p-8 space-y-5">
-               <input value={taskTitle} onChange={e => setTaskTitle(e.target.value)} placeholder="O QUE DEVE SER FEITO? *" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold uppercase outline-none focus:border-brand-500" />
+               <div className="space-y-1">
+                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">O que deve ser feito? *</label>
+                  <input value={taskTitle} onChange={e => setTaskTitle(e.target.value)} placeholder="EX: ENVIAR RELATÓRIO DE CAIXA" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold uppercase outline-none focus:border-brand-500" />
+               </div>
                <div className="grid grid-cols-2 gap-4">
-                  <select value={taskAssigneeType} onChange={e => setTaskAssigneeType(e.target.value as any)} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-xs uppercase outline-none">
-                    <option value="store">P/ TODA A LOJA</option><option value="user">P/ VENDEDOR ESPECÍFICO</option>
-                  </select>
-                  <input value={taskDueDate} onChange={e => setTaskDueDate(e.target.value)} placeholder="HORÁRIO (Ex: 15:00)" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-xs outline-none" />
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Destinatário</label>
+                    <select value={taskAssigneeType} onChange={e => setTaskAssigneeType(e.target.value as any)} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-xs uppercase outline-none">
+                      <option value="store">P/ TODA A LOJA</option><option value="user">P/ VENDEDOR ESPECÍFICO</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Prazo (Horário)</label>
+                    <input value={taskDueDate} onChange={e => setTaskDueDate(e.target.value)} placeholder="Ex: 15:00" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-xs outline-none" />
+                  </div>
                </div>
                <div className="flex gap-4">
                   <label className="flex-1 flex items-center gap-2 p-3 bg-slate-50 border border-slate-100 rounded-xl cursor-pointer hover:bg-white transition-colors">
@@ -281,11 +322,16 @@ const NetworkManagement: React.FC<NetworkManagementProps> = ({ currentUser, curr
                     <span className="text-[9px] font-black uppercase text-slate-600">Exigir Foto</span>
                   </label>
                </div>
-               <select value={taskAssigneeId} onChange={e => setTaskAssigneeId(e.target.value)} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold uppercase text-xs outline-none">
-                 <option value="">SELECIONE O DESTINATÁRIO... *</option>
-                 {taskAssigneeType === 'store' ? stores.filter(s => !s.archived).map(s => <option key={s.id} value={s.id}>{s.name}</option>) : users.map(u => <option key={u.id} value={u.name}>{u.name}</option>)}
-               </select>
-               <button type="submit" className="w-full py-4 bg-brand-500 text-white font-black rounded-2xl shadow-xl hover:bg-brand-600 uppercase text-xs transition-all">ATRIBUIR MISSÃO</button>
+               <div className="space-y-1">
+                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Alvo Específico *</label>
+                  <select value={taskAssigneeId} onChange={e => setTaskAssigneeId(e.target.value)} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold uppercase text-xs outline-none focus:border-brand-500">
+                    <option value="">SELECIONE O DESTINATÁRIO... *</option>
+                    {taskAssigneeType === 'store' ? stores.filter(s => !s.archived).map(s => <option key={s.id} value={s.id}>{s.name}</option>) : users.map(u => <option key={u.id} value={u.name}>{u.name}</option>)}
+                  </select>
+               </div>
+               <button type="submit" className="w-full py-4 bg-brand-500 text-white font-black rounded-2xl shadow-xl hover:bg-brand-600 uppercase text-xs tracking-widest transition-all">
+                  {editingTask ? 'SALVAR ALTERAÇÕES' : 'ATRIBUIR MISSÃO'}
+               </button>
             </form>
           </div>
         </div>
@@ -294,13 +340,16 @@ const NetworkManagement: React.FC<NetworkManagementProps> = ({ currentUser, curr
       {/* STORE MODAL */}
       {isStoreModalOpen && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[250] flex items-center justify-center p-4">
-          <div className="bg-white rounded-[2rem] shadow-2xl max-w-md w-full overflow-hidden">
+          <div className="bg-white rounded-[2rem] shadow-2xl max-w-md w-full overflow-hidden animate-in zoom-in">
             <div className="p-5 bg-brand-500 text-white flex justify-between items-center">
                <h3 className="font-black uppercase italic text-lg">{editingStore ? 'Editar Unidade' : 'Nova Loja'}</h3>
                <button onClick={() => setIsStoreModalOpen(false)}><i className="ph ph-x text-2xl"></i></button>
             </div>
             <form onSubmit={handleSaveStore} className="p-8 space-y-6">
-               <input value={storeName} onChange={e => setStoreName(e.target.value)} placeholder="NOME DA LOJA" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold uppercase text-slate-700 outline-none focus:border-brand-500" />
+               <div className="space-y-1">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nome Comercial</label>
+                  <input value={storeName} onChange={e => setStoreName(e.target.value)} placeholder="EX: LOJA MATRIZ" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold uppercase text-slate-700 outline-none focus:border-brand-500" />
+               </div>
                <button type="submit" className="w-full py-4 bg-slate-900 text-white font-black rounded-2xl shadow-xl hover:bg-black uppercase text-xs">Gravar Unidade</button>
             </form>
           </div>
@@ -310,7 +359,7 @@ const NetworkManagement: React.FC<NetworkManagementProps> = ({ currentUser, curr
       {/* USER MODAL */}
       {isUserModalOpen && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[250] flex items-center justify-center p-4">
-          <div className="bg-white rounded-[2rem] shadow-2xl max-w-md w-full overflow-hidden">
+          <div className="bg-white rounded-[2rem] shadow-2xl max-w-md w-full overflow-hidden animate-in zoom-in">
             <div className="p-5 bg-brand-500 text-white flex justify-between items-center">
                <h3 className="font-black uppercase italic text-lg">{editingUser ? 'Editar Acesso' : 'Novo Vendedor'}</h3>
                <button onClick={() => setIsUserModalOpen(false)}><i className="ph ph-x text-2xl"></i></button>
@@ -328,7 +377,12 @@ const NetworkManagement: React.FC<NetworkManagementProps> = ({ currentUser, curr
         </div>
       )}
 
-      <TaskCompletionModal isOpen={!!selectedTask} onClose={() => setSelectedTask(null)} onConfirm={handleConfirmCompletion} task={selectedTask} />
+      <TaskCompletionModal 
+        isOpen={!!selectedTaskForCompletion} 
+        onClose={() => setSelectedTaskForCompletion(null)} 
+        onConfirm={handleConfirmCompletion} 
+        task={selectedTaskForCompletion} 
+      />
     </div>
   );
 };
