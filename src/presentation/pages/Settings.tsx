@@ -6,7 +6,7 @@ const adjustColor = (color: string, amount: number) => {
 };
 
 const Settings: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'visual' | 'financeiro'>('visual');
+  const [activeTab, setActiveTab] = useState<'visual' | 'financeiro' | 'chatbot'>('visual');
   const [primaryColor, setPrimaryColor] = useState('#3b82f6'); 
   const [logoBase64, setLogoBase64] = useState('');
   const [categories, setCategories] = useState<any[]>([]);
@@ -84,6 +84,12 @@ const Settings: React.FC = () => {
           >
             Controle Financeiro
           </button>
+          <button 
+            onClick={() => setActiveTab('chatbot')}
+            className={`px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'chatbot' ? 'bg-brand-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-50'}`}
+          >
+            Chatbot
+          </button>
         </div>
       </div>
 
@@ -130,7 +136,7 @@ const Settings: React.FC = () => {
             <button onClick={handleSaveVisual} className="px-12 py-5 bg-brand-600 text-white font-black rounded-3xl hover:bg-brand-700 shadow-xl shadow-brand-500/30 active:scale-95 transition-all text-sm uppercase tracking-widest">Salvar Alterações Visuais</button>
           </div>
         </div>
-      ) : (
+      ) : activeTab === 'financeiro' ? (
         <div className="bg-white rounded-[40px] shadow-sm border border-slate-100 p-10 space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-300">
           <div>
             <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-6">Categorias de Despesas</h3>
@@ -165,6 +171,24 @@ const Settings: React.FC = () => {
             <p className="text-slate-400 text-sm leading-relaxed">
               Mantenha suas categorias organizadas para gerar relatórios precisos. O Controle Financeiro permite que você veja onde o dinheiro está saindo e tome decisões melhores para sua empresa.
             </p>
+          </div>
+        </div>
+      ) : (
+        <div className="bg-white rounded-[40px] shadow-sm border border-slate-100 p-10 space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-300">
+          <div className="flex flex-col items-center justify-center py-20 text-center space-y-6">
+            <div className="w-24 h-24 bg-brand-50 text-brand-500 rounded-3xl flex items-center justify-center shadow-inner">
+              <i className="ph ph-robot text-5xl"></i>
+            </div>
+            <div className="max-w-md space-y-2">
+              <h3 className="text-xl font-black text-slate-800 uppercase italic">Configuração de Chatbot</h3>
+              <p className="text-slate-500 text-sm font-medium">
+                Esta área está sendo preparada para receber a inteligência artificial de atendimento ao cliente. 
+                Em breve você poderá configurar respostas automáticas e triagem de vendas.
+              </p>
+            </div>
+            <div className="px-6 py-2 bg-slate-100 text-slate-400 rounded-full text-[9px] font-black uppercase tracking-widest">
+              Em Desenvolvimento
+            </div>
           </div>
         </div>
       )}
