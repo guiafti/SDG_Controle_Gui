@@ -1,0 +1,31 @@
+name: Publish Release
+
+on:
+  push:
+    tags:
+      - 'v*' # Dispara quando você empurra uma tag como v1.0.1
+
+jobs:
+  publish:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm install
+
+      - name: Rebuild Native Modules
+        run: npm run rebuild
+
+      - name: Build Application
+        run: npm run dist
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

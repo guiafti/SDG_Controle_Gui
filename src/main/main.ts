@@ -1,4 +1,5 @@
 import { app, BrowserWindow, ipcMain, protocol, net, dialog } from 'electron';
+import { autoUpdater } from 'electron-updater';
 import * as path from 'path';
 import * as fs from 'fs';
 import { pathToFileURL } from 'url';
@@ -8,12 +9,34 @@ import { SyncEngine } from './SyncEngine';
 import { randomUUID } from 'node:crypto';
 import { createClient } from '@supabase/supabase-js';
 
+// Configuração simples do autoUpdater
+autoUpdater.autoDownload = true;
+autoUpdater.autoInstallOnAppQuit = true;
+
 const LOG_FILE = path.join(app.getPath('userData'), 'error.log');
 const logError = (msg: string) => {
   const time = new Date().toISOString();
   try { fs.appendFileSync(LOG_FILE, `[${time}] ${msg}\n`); } catch (e) {}
   console.error(msg);
 };
+
+autoUpdater.on('update-downloaded', (info) => {
+  dialog.showMessageBox({
+    type: 'info',
+    title: 'Atualização Disponível',
+    message: `Uma nova versão (${info.version}) foi baixada. Deseja reiniciar o sistema para aplicar a atualização agora?`,
+    buttons: ['Reiniciar Agora', 'Depois'],
+    defaultId: 0
+  }).then((result) => {
+    if (result.response === 0) {
+      autoUpdater.quitAndInstall();
+    }
+  });
+});
+
+autoUpdater.on('error', (err) => {
+  logError(`Erro no autoUpdater: ${err.message}`);
+});
 
 let supabaseClient: any = null;
 const getSupabase = () => {
@@ -67,6 +90,13 @@ app.whenReady().then(async () => {
   await initDatabase();
   createWindow();
   SyncEngine.start();
+
+  // Inicia a verificação de atualizações após 3 segundos para não pesar o boot
+  if (app.isPackaged) {
+    setTimeout(() => {
+      autoUpdater.checkForUpdatesAndNotify();
+    }, 3000);
+  }
 });
 
 const cleanText = (val: any) => String(val || '').trim().toUpperCase();
@@ -466,27 +496,49 @@ import { generateRepairReceiptHTML, generateReceiptHTML } from './ReceiptTemplat
 // --- IMPRESSÃO ---
 
 ipcMain.handle('print-repair-receipt', async (_, { repair, storeName, logo }) => {
+  let win: BrowserWindow | null = null;
   try {
     const html = generateRepairReceiptHTML(repair, storeName, logo);
     const tmp = path.join(app.getPath('userData'), 'print_os.html');
     fs.writeFileSync(tmp, html);
-    const win = new BrowserWindow({ show: false, webPreferences: { nodeIntegration: false, contextIsolation: true } });
+    win = new BrowserWindow({ show: false, webPreferences: { nodeIntegration: false, contextIsolation: true } });
     await win.loadFile(tmp);
-    setTimeout(() => { if (!win.isDestroyed()) win.close(); }, 5000);
-    return { success: true };
-  } catch (e: any) { return { success: false, error: e.message }; }
+    await new Promise(r => setTimeout(r, 200)); // Delay for rendering
+    
+    return new Promise((resolve) => {
+      if (!win) return resolve({ success: false, error: 'Falha ao criar janela' });
+      win.webContents.print({ silent: false }, (success, failureReason) => {
+        if (win && !win.isDestroyed()) win.close();
+        resolve({ success, error: failureReason });
+      });
+    });
+  } catch (e: any) { 
+    if (win && !win.isDestroyed()) win.close();
+    return { success: false, error: e.message }; 
+  }
 });
 
 ipcMain.handle('print-receipt', async (_, { sale, storeName, logo }) => {
+  let win: BrowserWindow | null = null;
   try {
     const html = generateReceiptHTML(sale, storeName, logo);
     const tmp = path.join(app.getPath('userData'), 'print_sale.html');
     fs.writeFileSync(tmp, html);
-    const win = new BrowserWindow({ show: false, webPreferences: { nodeIntegration: false, contextIsolation: true } });
+    win = new BrowserWindow({ show: false, webPreferences: { nodeIntegration: false, contextIsolation: true } });
     await win.loadFile(tmp);
-    setTimeout(() => { if (!win.isDestroyed()) win.close(); }, 5000);
-    return { success: true };
-  } catch (e: any) { return { success: false, error: e.message }; }
+    await new Promise(r => setTimeout(r, 200)); // Delay for rendering
+
+    return new Promise((resolve) => {
+      if (!win) return resolve({ success: false, error: 'Falha ao criar janela' });
+      win.webContents.print({ silent: false }, (success, failureReason) => {
+        if (win && !win.isDestroyed()) win.close();
+        resolve({ success, error: failureReason });
+      });
+    });
+  } catch (e: any) { 
+    if (win && !win.isDestroyed()) win.close();
+    return { success: false, error: e.message }; 
+  }
 });
 
 ipcMain.on('window-minimize', (e) => BrowserWindow.fromWebContents(e.sender)?.minimize());

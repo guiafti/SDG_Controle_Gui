@@ -9,3 +9,6 @@ release/
 local.db
 local.db-journal
 local.db-wal
+
+# Mobile Project
+SDG_MOBILE_APP/

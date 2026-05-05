@@ -7,3 +7,5 @@ local.db*
 *.log
 carga_total_produtos.xml
 importacao_produtos.xml
+SDG_MOBILE_APP/
+

@@ -112,15 +112,6 @@ export const generateRepairReceiptHTML = (repair: any, storeName: string, logo?:
       ${renderCopy('CLIENTE')}
       <div style="height: 40px; border-bottom: 2px dashed #000; margin: 20px 0;"></div>
       ${renderCopy('LABORATÓRIO / APARELHO')}
-      
-      <script>
-        window.onload = () => {
-          window.print();
-          setTimeout(() => {
-            window.close();
-          }, 500);
-        };
-      </script>
     </body>
     </html>
   `;
@@ -216,16 +207,6 @@ export const generateReceiptHTML = (sale: any, storeName: string, logo?: string)
         <div>SDG CONTROL Enterprise</div>
         <div style="margin-top: 5px;">${sale.id.substring(0, 8)}</div>
       </div>
-      
-      <script>
-        // Auto print when loaded
-        window.onload = () => {
-          window.print();
-          setTimeout(() => {
-            window.close();
-          }, 500);
-        };
-      </script>
     </body>
     </html>
   `;

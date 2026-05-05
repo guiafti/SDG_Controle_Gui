@@ -246,11 +246,23 @@ const App: React.FC = () => {
   };
 
   const confirmPrint = async () => {
-    if (previewData) {
-      await window.api.printReceipt(previewData);
-    }
+    if (!previewData) return;
+    
     setIsPreviewOpen(false);
-    setPreviewData(null);
+    const loadingId = toast.loading('Enviando para impressora...');
+    
+    try {
+      const result = await window.api.printReceipt(previewData);
+      if (result && result.success) {
+        toast.success('Enviado para impressora!', { id: loadingId });
+      } else {
+        toast.error(`Erro na impressão: ${result?.error || 'Desconhecido'}`, { id: loadingId });
+      }
+    } catch (error: any) {
+      toast.error(`Falha ao imprimir: ${error.message}`, { id: loadingId });
+    } finally {
+      setPreviewData(null);
+    }
   };
 
   const totalVenda = carrinho.reduce((acc, item) => acc + (item.preco * item.qtd), 0);
