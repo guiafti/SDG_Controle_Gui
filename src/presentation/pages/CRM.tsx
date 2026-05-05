@@ -122,7 +122,25 @@ const CRM: React.FC<CRMProps> = ({ currentUser, currentStoreId }) => {
               <div key={c.id} onClick={() => openModal(c)} className="bg-white rounded-3xl border border-slate-100 p-5 shadow-sm hover:border-brand-400 hover:shadow-xl transition-all cursor-pointer group">
                 <div className="flex items-center gap-3 mb-4">
                   <div className="w-12 h-12 rounded-2xl bg-brand-50 flex items-center justify-center text-brand-500 group-hover:bg-brand-500 group-hover:text-white transition-all"><i className="ph ph-user-focus text-2xl"></i></div>
-                  <div className="min-w-0"><h3 className="text-sm font-bold text-slate-800 uppercase truncate leading-tight">{c.name}</h3><p className="text-[10px] font-bold text-brand-600 mt-0.5">{c.phone}</p></div>
+                  <div className="min-w-0 flex-1">
+                    <h3 className="text-sm font-bold text-slate-800 uppercase truncate leading-tight">{c.name}</h3>
+                    <div className="flex items-center gap-2">
+                        <p className="text-[10px] font-bold text-brand-600 mt-0.5">{c.phone}</p>
+                        {c.phone && (
+                            <button 
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    const cleanPhone = c.phone.replace(/\D/g, '');
+                                    window.open(`https://wa.me/55${cleanPhone}`, '_blank');
+                                }}
+                                className="mt-0.5 text-emerald-500 hover:text-emerald-600 transition-colors"
+                                title="Enviar WhatsApp"
+                            >
+                                <i className="ph ph-whatsapp-logo text-sm"></i>
+                            </button>
+                        )}
+                    </div>
+                  </div>
                 </div>
                 <div className="space-y-1 pt-3 border-t border-slate-50 text-[10px] text-slate-400 font-bold">
                   <p className="uppercase"><i className="ph ph-map-pin mr-1"></i> {c.city || 'ALMENARA'}</p>
