@@ -148,7 +148,7 @@ const Analytics: React.FC = () => {
         </div>
 
         {/* Bottom Strategic Insights */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-10">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-4">
             <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm space-y-4">
                 <div className="flex items-center gap-3">
                     <div className="w-10 h-10 bg-brand-50 rounded-xl flex items-center justify-center text-brand-600">
@@ -183,6 +183,17 @@ const Analytics: React.FC = () => {
                     </button>
                 </div>
             </div>
+        </div>
+
+        {/* Explicação da Inteligência Preditiva (Teste de Atualização) */}
+        <div className="bg-brand-50/50 p-6 rounded-3xl border border-brand-100 mb-10">
+            <h3 className="text-brand-800 font-bold text-sm uppercase mb-2">O que é a Análise Preditiva?</h3>
+            <p className="text-brand-700 text-[11px] leading-relaxed">
+                A análise preditiva utiliza dados históricos de vendas, comportamento do consumidor e tendências de mercado para prever resultados futuros. 
+                Através de modelos estatísticos, o sistema ajuda você a antecipar a demanda, evitar a falta de produtos no estoque e identificar as 
+                melhores oportunidades de venda antes mesmo delas acontecerem. Esta atualização confirma que o sistema de deploy automático está 
+                funcionando perfeitamente.
+            </p>
         </div>
 
       </main>
