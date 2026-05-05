@@ -544,4 +544,13 @@ ipcMain.handle('print-receipt', async (_, { sale, storeName, logo }) => {
 ipcMain.on('window-minimize', (e) => BrowserWindow.fromWebContents(e.sender)?.minimize());
 ipcMain.on('window-maximize', (e) => { const w = BrowserWindow.fromWebContents(e.sender); if (w?.isMaximized()) w.unmaximize(); else w?.maximize(); });
 ipcMain.on('window-close', (e) => BrowserWindow.fromWebContents(e.sender)?.close());
+
+ipcMain.handle('check-for-updates', async () => {
+  if (app.isPackaged) {
+    const result = await autoUpdater.checkForUpdatesAndNotify();
+    return { success: true, result };
+  }
+  return { success: false, error: 'App não empacotado' };
+});
+
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
