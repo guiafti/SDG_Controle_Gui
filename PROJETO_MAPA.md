@@ -35,6 +35,10 @@ Este é um sistema de **Comando e Controle Operacional** desenvolvido para geren
 *   **Protocolo de Entrada:** Registro com fotos, defeitos e prioridades.
 *   **Status de Rede:** Acompanhamento de qual loja está com o aparelho no momento.
 
+### E. Automação de Impressão (Novidade)
+*   **Motor Híbrido:** Suporte nativo a ESC/POS (USB Direto) com fallback automático para Windows Spooler.
+*   **Auto-Detecção:** Identificação automática de hardware via VID/PID para configuração zero-touch.
+
 ---
 
 ## 4. Guia para a Inteligência Artificial (IA)

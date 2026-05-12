@@ -189,54 +189,55 @@ export class PrinterModule {
           return new Promise((resolve) => {
             try {
               device.open();
-              const iface = device.interfaces[0];
-              
-              // No Windows, se o Spooler estiver tentando usar a impressora,
-              // o claim() pode falhar com LIBUSB_ERROR_ACCESS.
-              // Tentamos desanexar se necessário (mais comum em Linux, mas ajuda na robustez).
-              try {
-                if (iface.isKernelDriverActive()) {
-                  iface.detachKernelDriver();
-                }
-              } catch (e) {}
 
-              iface.claim();
-              const outEndpoint = iface.endpoints.find((e: any) => e.direction === 'out');
-
-              if (!outEndpoint) {
-                iface.release(true, () => device.close());
-                return resolve({ success: false, error: "Nao foi possivel encontrar o endpoint de saida." });
-              }
-
-              outEndpoint.transfer(buffer, (err: any) => {
-                iface.release(true, () => {
-                  device.close();
-                  if (err) resolve({ success: false, error: `Erro na transferencia: ${err.message}` });
-                  else resolve({ success: true });
-                });
-              });
-            } catch (usbErr: any) {
-              try { device.close(); } catch (e) {}
-              
-              // SE DER ERRO DE ACESSO (LIBUSB_ERROR_ACCESS), TENTAMOS O FALLBACK PARA FILA DO WINDOWS
-              if (usbErr.message.includes('LIBUSB_ERROR_ACCESS')) {
-                console.warn("Acesso direto negado. Tentando via fila do Windows (Modo Fallback)...");
-                // Tenta usar o printRaw que usa a fila do Windows (que o Spooler permite)
-                const fallbackData = typeof data === 'string' ? { 
-                  type: 'SALE' as const, 
-                  storeName: 'RECIBO', 
-                  items: [{ name: data, qtd: 1, total: 0 }], 
-                  total: 0 
-                } : data;
+              // LOGICA "MODO PYTHON": Tenta forçar a configuração do dispositivo
+              // Isso ajuda a "destravar" a impressora se o Windows estiver segurando.
+              device.setConfiguration(1, (configErr: any) => {
+                const iface = device.interfaces[0];
                 
-                const fallbackRes = await PrinterModule.printRaw(fallbackData, `printer:POS58 Printer`);
-                return resolve(fallbackRes);
-              }
+                try {
+                  if (iface.isKernelDriverActive()) {
+                    iface.detachKernelDriver();
+                  }
+                } catch (e) {}
 
-              const msg = usbErr.message.includes('LIBUSB_ERROR_ACCESS') 
-                ? "Acesso Negado. Feche outros programas ou mude para o modo HTML."
-                : usbErr.message;
-              resolve({ success: false, error: `Falha USB: ${msg}` });
+                try {
+                  iface.claim();
+                  const outEndpoint = iface.endpoints.find((e: any) => e.direction === 'out');
+
+                  if (!outEndpoint) {
+                    iface.release(true, () => device.close());
+                    return resolve({ success: false, error: "Endpoint de saida nao encontrado." });
+                  }
+
+                  // Limpa a impressora antes de começar
+                  const initCommand = Buffer.from([0x1b, 0x40]);
+                  outEndpoint.transfer(initCommand, () => {
+                    outEndpoint.transfer(buffer, (err: any) => {
+                      iface.release(true, () => {
+                        device.close();
+                        if (err) resolve({ success: false, error: `Erro na transferencia: ${err.message}` });
+                        else resolve({ success: true });
+                      });
+                    });
+                  });
+                } catch (usbErr: any) {
+                  try { device.close(); } catch (e) {}
+                  
+                  // FALLBACK INTELIGENTE: Se o modo USB Direto der erro de acesso, tenta o Spooler do Windows
+                  if (usbErr.message.includes('ACCESS') || usbErr.message.includes('NOT_SUPPORTED')) {
+                    console.warn("Acesso USB Direto negado. Tentando via Spooler do Windows...");
+                    const fallbackData = typeof data === 'string' ? { 
+                      type: 'SALE' as const, storeName: 'RECIBO', items: [{ name: data, qtd: 1, total: 0 }], total: 0 
+                    } : data;
+                    return resolve(PrinterModule.printRaw(fallbackData, "printer:POS58 Printer"));
+                  }
+                  resolve({ success: false, error: `Falha USB: ${usbErr.message}` });
+                }
+              });
+            } catch (openErr: any) {
+              try { device.close(); } catch (e) {}
+              resolve({ success: false, error: `Erro ao abrir: ${openErr.message}` });
             }
           });
         } catch (e: any) {
