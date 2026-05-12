@@ -70,6 +70,40 @@ export class SyncEngine {
     this.pushToCloud();
   }
 
+  private static async downloadImageLocally(url: string, targetDir: string) {
+    try {
+      const fileName = path.basename(url.split('?')[0]);
+      const filePath = path.join(targetDir, fileName);
+
+      if (fs.existsSync(filePath)) return; // Já existe
+
+      const { net } = require('electron');
+      const request = net.request(url);
+
+      return new Promise((resolve, reject) => {
+        request.on('response', (response) => {
+          const chunks: any[] = [];
+          response.on('data', (chunk) => {
+            chunks.push(chunk);
+          });
+          response.on('end', () => {
+            const buffer = Buffer.concat(chunks);
+            fs.writeFileSync(filePath, buffer);
+            logSync(`Imagem baixada: ${fileName}`);
+            resolve(true);
+          });
+        });
+        request.on('error', (err) => {
+          logSync(`Erro download imagem ${fileName}: ${err.message}`);
+          reject(err);
+        });
+        request.end();
+      });
+    } catch (err: any) {
+      logSync(`Falha no download da imagem: ${err.message}`);
+    }
+  }
+
   static async pushToCloud() {
     if (!this.supabase || this.isSyncing) return;
     this.isSyncing = true;
@@ -332,11 +366,16 @@ export class SyncEngine {
         }
       }
 
-      // 3. Produtos
+      // 3. Produtos e Download de Imagens
       const { data: cloudProds, error: pe } = await this.supabase.from('products').select('*');
       if (pe) console.error('[SYNC ERROR] Erro Pull Produtos:', pe);
       if (cloudProds) {
         for (const p of cloudProds) {
+          // Download da imagem se ela for uma URL externa do Supabase
+          if (p.image && p.image.startsWith('http')) {
+            await this.downloadImageLocally(p.image, this.imagesDir);
+          }
+
           const local = await get('SELECT synced FROM products WHERE id = ?', [p.id]);
           if (!local || local.synced === 1) {
             await run('INSERT OR REPLACE INTO products (id, barcode, name, price, image, archived, synced) VALUES (?, ?, ?, ?, ?, ?, 1)', 
@@ -345,11 +384,15 @@ export class SyncEngine {
         }
       }
 
-      // 4. Manutenções
+      // 4. Manutenções e Download de Fotos de Reparo
       const { data: cloudRepairs, error: re } = await this.supabase.from('maintenance_orders').select('*');
       if (re) console.error('[SYNC ERROR] Erro Pull OS:', re);
       if (cloudRepairs) {
         for (const r of cloudRepairs) {
+          if (r.photo_url && r.photo_url.startsWith('http')) {
+            await this.downloadImageLocally(r.photo_url, this.repairImagesDir);
+          }
+
           const local = await get('SELECT synced FROM maintenance_orders WHERE id = ?', [r.id]);
           if (!local || local.synced === 1) {
             await run('INSERT OR REPLACE INTO maintenance_orders (id, customer_name, customer_phone, device_brand, device_model, issue_description, photo_url, price, entry_store_id, maintenance_store_id, current_store_id, status, synced, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)', 
