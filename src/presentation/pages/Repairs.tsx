@@ -372,7 +372,16 @@ const Repairs: React.FC = () => {
               <div className="flex items-center gap-6">
                 <div className="w-20 h-20 rounded-2xl bg-white overflow-hidden border border-slate-200 shadow-sm shrink-0 group relative">
                   {selectedOrder.photo_url ? (
-                    <img src={`local-img://${selectedOrder.photo_url}`} className="w-full h-full object-cover" alt="OS" />
+                    <img 
+                      src={selectedOrder.photo_url.startsWith('http') ? `local-img://${selectedOrder.photo_url.split('/').pop()?.split('?')[0]}` : `local-img://${selectedOrder.photo_url}`} 
+                      className="w-full h-full object-cover" 
+                      alt="OS" 
+                      onError={(e: any) => {
+                        if (selectedOrder.photo_url.startsWith('http') && !e.target.src.includes(selectedOrder.photo_url)) {
+                          e.target.src = selectedOrder.photo_url;
+                        }
+                      }}
+                    />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center text-slate-200"><i className="ph ph-image text-3xl"></i></div>
                   )}

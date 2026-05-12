@@ -90,9 +90,14 @@ const ProductSearchModal: React.FC<ProductSearchModalProps> = ({ isOpen, onClose
                        onClick={() => setViewingProduct(p)}>
                     {p.image ? (
                       <img 
-                        src={p.image.startsWith('http') ? p.image : `local-img://${p.image}`} 
+                        src={p.image.startsWith('http') ? `local-img://${p.image.split('/').pop()?.split('?')[0]}` : `local-img://${p.image}`} 
                         className="w-full h-full object-cover" 
                         alt={p.name} 
+                        onError={(e: any) => {
+                          if (p.image.startsWith('http') && !e.target.src.includes(p.image)) {
+                            e.target.src = p.image;
+                          }
+                        }}
                       />
                     ) : (
                       <i className="ph ph-package text-4xl"></i>
@@ -219,4 +224,4 @@ const ProductSearchModal: React.FC<ProductSearchModalProps> = ({ isOpen, onClose
   );
 };
 
-export default ProductSearchModal;
+export default ProductSearchModal;rchModal;
