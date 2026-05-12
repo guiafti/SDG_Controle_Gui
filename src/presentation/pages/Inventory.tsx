@@ -253,7 +253,17 @@ const Inventory: React.FC<InventoryProps> = ({ role }) => {
                   >
                     <div className="w-10 h-10 rounded-lg bg-slate-50 flex-none flex items-center justify-center text-slate-400 overflow-hidden border border-slate-100">
                       {p.image ? (
-                        <img src={`local-img://${p.image}`} className="w-full h-full object-cover" alt="" />
+                        <img 
+                          src={p.image.startsWith('http') ? `local-img://${p.image.split('/').pop()?.split('?')[0]}` : `local-img://${p.image}`} 
+                          className="w-full h-full object-cover" 
+                          alt="" 
+                          onError={(e: any) => {
+                            // Se falhar o local-img, tenta a URL original http
+                            if (p.image.startsWith('http') && !e.target.src.includes(p.image)) {
+                              e.target.src = p.image;
+                            }
+                          }}
+                        />
                       ) : (
                         <i className="ph ph-package text-xl"></i>
                       )}

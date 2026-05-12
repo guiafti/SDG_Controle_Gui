@@ -1,6 +1,6 @@
 {
   "name": "pdv-grupo-import",
-  "version": "1.0.9",
+  "version": "1.1.0",
   "main": "dist/main/main.js",
   "description": "Sistema de PDV Desktop Offline-first",
   "repository": {
@@ -10,7 +10,7 @@
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "build:ui": "vite build",
-    "build:main": "npx esbuild src/main/main.ts --bundle --platform=node --external:electron --external:better-sqlite3 --external:node-thermal-printer --external:usb --external:escpos --external:escpos-usb --outfile=dist/main/main.js && npx esbuild src/main/preload.ts --bundle --platform=node --external:electron --outfile=dist/main/preload.js",
+    "build:main": "npx esbuild src/main/main.ts --bundle --platform=node --external:electron --external:better-sqlite3 --external:node-thermal-printer --external:usb --outfile=dist/main/main.js && npx esbuild src/main/preload.ts --bundle --platform=node --external:electron --outfile=dist/main/preload.js",
     "electron:dev": "npm run build:main && npx concurrently -k \"npm run dev\" \"npx electron .\"",
     "dist": "npm run build:ui && npm run build:main && electron-builder",
     "rebuild": "electron-rebuild -f",
