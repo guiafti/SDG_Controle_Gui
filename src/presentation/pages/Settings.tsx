@@ -6,9 +6,12 @@ const adjustColor = (color: string, amount: number) => {
 };
 
 const Settings: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'visual' | 'financeiro' | 'chatbot'>('visual');
+  const [activeTab, setActiveTab] = useState<'visual' | 'financeiro' | 'impressao' | 'chatbot'>('visual');
   const [primaryColor, setPrimaryColor] = useState('#3b82f6'); 
   const [logoBase64, setLogoBase64] = useState('');
+  const [printerInterface, setPrinterInterface] = useState('printer:POS-58');
+  const [printerType, setPrinterType] = useState('escpos');
+  const [availablePrinters, setAvailablePrinters] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
   const [newCategory, setNewCategory] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -20,11 +23,21 @@ const Settings: React.FC = () => {
 
   const fetchSettings = async () => {
     try {
-      const settings = await window.api.getSettings();
+      const [settings, printers] = await Promise.all([
+        window.api.getSettings(),
+        window.api.getPrinters()
+      ]);
+      setAvailablePrinters(printers || []);
+      
       const colorSetting = settings.find((s: any) => s.key === 'primary_color');
       const logoSetting = settings.find((s: any) => s.key === 'logo');
+      const pInterface = settings.find((s: any) => s.key === 'printer_interface');
+      const pType = settings.find((s: any) => s.key === 'printer_type');
+
       if (colorSetting) setPrimaryColor(colorSetting.value);
       if (logoSetting) setLogoBase64(logoSetting.value);
+      if (pInterface) setPrinterInterface(pInterface.value);
+      if (pType) setPrinterType(pType.value);
     } catch (e) { console.error(e); }
   };
 
@@ -53,6 +66,17 @@ const Settings: React.FC = () => {
     } catch (e) { toast.error('Erro ao salvar', { id: loadingId }); }
   };
 
+  const handleSavePrinter = async () => {
+    const loadingId = toast.loading('Salvando configurações de impressão...');
+    try {
+      await window.api.saveSettings([
+        { key: 'printer_interface', value: printerInterface },
+        { key: 'printer_type', value: printerType }
+      ]);
+      toast.success('Configurações de impressão salvas!', { id: loadingId });
+    } catch (e) { toast.error('Erro ao salvar', { id: loadingId }); }
+  };
+
   const handleAddCategory = async () => {
     if (!newCategory) return;
     try {
@@ -71,29 +95,35 @@ const Settings: React.FC = () => {
           <p className="text-slate-400 font-bold text-xs uppercase tracking-widest mt-1">Gerenciamento Global do Sistema</p>
         </div>
         
-        <div className="flex bg-white p-1.5 rounded-2xl shadow-sm border border-slate-100">
+        <div className="flex bg-white p-1.5 rounded-2xl shadow-sm border border-slate-100 overflow-x-auto">
           <button 
             onClick={() => setActiveTab('visual')}
-            className={`px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'visual' ? 'bg-brand-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-50'}`}
+            className={`px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${activeTab === 'visual' ? 'bg-brand-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-50'}`}
           >
             Identidade Visual
           </button>
           <button 
             onClick={() => setActiveTab('financeiro')}
-            className={`px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'financeiro' ? 'bg-brand-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-50'}`}
+            className={`px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${activeTab === 'financeiro' ? 'bg-brand-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-50'}`}
           >
             Controle Financeiro
           </button>
           <button 
+            onClick={() => setActiveTab('impressao')}
+            className={`px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${activeTab === 'impressao' ? 'bg-brand-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-50'}`}
+          >
+            Impressão
+          </button>
+          <button 
             onClick={() => setActiveTab('chatbot')}
-            className={`px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'chatbot' ? 'bg-brand-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-50'}`}
+            className={`px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${activeTab === 'chatbot' ? 'bg-brand-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-50'}`}
           >
             Chatbot
           </button>
         </div>
       </div>
 
-      {activeTab === 'visual' ? (
+      {activeTab === 'visual' && (
         <div className="bg-white rounded-[40px] shadow-sm border border-slate-100 p-10 space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-300">
           <div>
             <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-6">Logo da Empresa</h3>
@@ -136,7 +166,9 @@ const Settings: React.FC = () => {
             <button onClick={handleSaveVisual} className="px-12 py-5 bg-brand-600 text-white font-black rounded-3xl hover:bg-brand-700 shadow-xl shadow-brand-500/30 active:scale-95 transition-all text-sm uppercase tracking-widest">Salvar Alterações Visuais</button>
           </div>
         </div>
-      ) : activeTab === 'financeiro' ? (
+      )}
+
+      {activeTab === 'financeiro' && (
         <div className="bg-white rounded-[40px] shadow-sm border border-slate-100 p-10 space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-300">
           <div>
             <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-6">Categorias de Despesas</h3>
@@ -173,7 +205,105 @@ const Settings: React.FC = () => {
             </p>
           </div>
         </div>
-      ) : (
+      )}
+
+      {activeTab === 'impressao' && (
+        <div className="bg-white rounded-[40px] shadow-sm border border-slate-100 p-10 space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-300">
+          <div>
+            <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-6">Configuração de Impressora Térmica</h3>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="space-y-4">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Método de Impressão</label>
+                <div className="flex gap-4">
+                  <button 
+                    onClick={() => setPrinterType('escpos')}
+                    className={`flex-1 p-4 rounded-2xl border-2 transition-all text-left ${printerType === 'escpos' ? 'border-brand-500 bg-brand-50' : 'border-slate-100'}`}
+                  >
+                    <div className="text-[10px] font-black uppercase mb-1">ESC/POS (Direto)</div>
+                    <div className="text-slate-400 text-[9px]">Recomendado para Knup/Epson USB</div>
+                  </button>
+                  <button 
+                    onClick={() => setPrinterType('html')}
+                    className={`flex-1 p-4 rounded-2xl border-2 transition-all text-left ${printerType === 'html' ? 'border-brand-500 bg-brand-50' : 'border-slate-100'}`}
+                  >
+                    <div className="text-[10px] font-black uppercase mb-1">HTML (Windows)</div>
+                    <div className="text-slate-400 text-[9px]">Usa o gerenciador do Windows</div>
+                  </button>
+                </div>
+              </div>
+
+              <div class="space-y-4">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Selecionar Impressora (Windows)</label>
+                <select 
+                  value={printerInterface.startsWith('printer:') ? printerInterface.replace('printer:', '') : ''} 
+                  onChange={e => {
+                    if (e.target.value) setPrinterInterface(`printer:${e.target.value}`);
+                  }}
+                  className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl text-slate-700 font-black uppercase outline-none focus:border-brand-500 appearance-none"
+                >
+                  <option value="">USAR ENDEREÇO ABAIXO</option>
+                  {availablePrinters.map(p => (
+                    <option key={p.name} value={p.name}>{p.name}</option>
+                  ))}
+                </select>
+                <p className="text-[9px] text-slate-400 italic">Escolha uma impressora da lista ou digite o endereço manual abaixo.</p>
+              </div>
+
+              <div className="space-y-4">
+                <div className="flex justify-between items-end">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Endereço de Rede ou USB Direto</label>
+                  <button 
+                    onClick={async () => {
+                      const devices = await window.api.listUsbDevices();
+                      const printer = devices.find((d: any) => d.vendorId === 0x28E9 || d.vendorId === 0x0fe6 || d.vendorId === 0x0416);
+                      if (printer) {
+                        const addr = `USB:${printer.vendorId.toString(16).toUpperCase().padStart(4, '0')}:${printer.productId.toString(16).toUpperCase().padStart(4, '0')}`;
+                        setPrinterInterface(addr);
+                        toast.success(`Impressora detectada: ${addr}`);
+                      } else {
+                        toast.error('Nenhuma impressora USB compatível encontrada.');
+                      }
+                    }}
+                    className="text-[9px] font-black text-brand-600 uppercase hover:underline"
+                  >
+                    Detectar USB
+                  </button>
+                </div>
+                <input 
+                  type="text" 
+                  value={printerInterface.startsWith('printer:') ? '' : printerInterface} 
+                  onChange={e => setPrinterInterface(e.target.value)}
+                  placeholder="Ex: 192.168.1.100 ou USB:28E9:0289"
+                  className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl text-slate-700 font-black uppercase outline-none focus:border-brand-500"
+                />
+                <p className="text-[9px] text-slate-400 italic">IP para rede, COM para Serial ou USB:VID:PID para direto.</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="pt-6 border-t border-slate-50 flex justify-end gap-4">
+            <button 
+              onClick={async () => {
+                const loadingId = toast.loading('Enviando teste...');
+                try {
+                  const res = await window.api.testPrinter({ deviceName: printerInterface.replace('printer:', '') });
+                  if (res.success) toast.success('Teste enviado!', { id: loadingId });
+                  else toast.error(`Erro: ${res.error}`, { id: loadingId });
+                } catch (e) {
+                  toast.error('Erro ao conectar', { id: loadingId });
+                }
+              }}
+              className="px-8 py-5 bg-slate-100 text-slate-600 font-black rounded-3xl hover:bg-slate-200 transition-all text-sm uppercase tracking-widest"
+            >
+              Testar Impressora
+            </button>
+            <button onClick={handleSavePrinter} className="px-12 py-5 bg-brand-600 text-white font-black rounded-3xl hover:bg-brand-700 shadow-xl shadow-brand-500/30 active:scale-95 transition-all text-sm uppercase tracking-widest">Salvar Impressão</button>
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'chatbot' && (
         <div className="bg-white rounded-[40px] shadow-sm border border-slate-100 p-10 space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-300">
           <div className="flex flex-col items-center justify-center py-20 text-center space-y-6">
             <div className="w-24 h-24 bg-brand-50 text-brand-500 rounded-3xl flex items-center justify-center shadow-inner">

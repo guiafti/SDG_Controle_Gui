@@ -492,10 +492,217 @@ ipcMain.handle('upload-product-image', async (_, { barcode, base64Data }) => {
 });
 
 import { generateRepairReceiptHTML, generateReceiptHTML } from './ReceiptTemplate';
+import { PrinterModule } from './PrinterModule';
 
 // --- IMPRESSÃO ---
 
-ipcMain.handle('print-repair-receipt', async (_, { repair, storeName, logo }) => {
+ipcMain.handle('get-printers', async () => {
+  const win = new BrowserWindow({ show: false });
+  const printers = await win.webContents.getPrintersAsync();
+  win.close();
+  return printers;
+});
+
+ipcMain.handle('print-usb', async (_, { vid, pid, content }) => {
+  return await PrinterModule.printUSB(vid, pid, content);
+});
+
+ipcMain.handle('usb-direct-print', async (_, { buffer }) => {
+  try {
+    const usb = require('usb');
+    const device = usb.findByIds(0x28E9, 0x0289);
+    if (!device) return { success: false, error: 'Impressora USB não encontrada' };
+
+    return new Promise((resolve) => {
+      try {
+        device.open();
+        const iface = device.interfaces[0];
+        iface.claim();
+        const outEndpoint = iface.endpoints.find((e: any) => e.direction === 'out');
+        if (!outEndpoint) throw new Error('Endpoint não encontrado');
+
+        outEndpoint.transfer(Buffer.from(buffer), (err: any) => {
+          iface.release(true, () => device.close());
+          if (err) resolve({ success: false, error: err.message });
+          else resolve({ success: true });
+        });
+      } catch (e: any) {
+        try { device.close(); } catch (err) {}
+        resolve({ success: false, error: e.message });
+      }
+    });
+  } catch (e: any) {
+    return { success: false, error: e.message };
+  }
+});
+
+ipcMain.handle('list-usb-devices', async () => {
+  try {
+    const usb = require('usb');
+    const devices = usb.getDeviceList();
+    return devices.map((d: any) => {
+      try {
+        return {
+          vendorId: d.deviceDescriptor.idVendor,
+          productId: d.deviceDescriptor.idProduct,
+          manufacturer: d.deviceDescriptor.iManufacturer,
+          product: d.deviceDescriptor.iProduct
+        };
+      } catch (e) {
+        return { vendorId: d.deviceDescriptor.idVendor, productId: d.deviceDescriptor.idProduct };
+      }
+    });
+  } catch (e: any) {
+    return { error: e.message };
+  }
+});
+
+ipcMain.handle('debug-print', async (_, { deviceName }) => {
+  logError(`INICIANDO DEBUG-PRINT PARA: ${deviceName}`);
+  const win = new BrowserWindow({ show: false });
+  const printers = await win.webContents.getPrintersAsync();
+  const target = printers.find(p => p.name === deviceName);
+  
+  if (!target) {
+    logError(`ERRO: Impressora '${deviceName}' não encontrada na lista do Windows.`);
+    win.close();
+    return { success: false, error: 'Impressora não encontrada' };
+  }
+
+  try {
+    const html = `<html><body><h1 style="font-size: 20px;">DEBUG OK</h1><p>Teste de sistema</p></body></html>`;
+    const tmp = path.join(app.getPath('userData'), 'debug_print.html');
+    fs.writeFileSync(tmp, html);
+    await win.loadFile(tmp);
+    await new Promise(r => setTimeout(r, 1000));
+
+    return new Promise((resolve) => {
+      win.webContents.print({ 
+        silent: true, 
+        deviceName: deviceName,
+        pageSize: { width: 58000, height: 200000 },
+        margins: { marginType: 'none' }
+      }, (success, failureReason) => {
+        logError(`RESULTADO PRINT: success=${success}, reason=${failureReason}`);
+        win.close();
+        resolve({ success, error: failureReason });
+      });
+    });
+  } catch (e: any) {
+    win.close();
+    logError(`ERRO NO CATCH DEBUG: ${e.message}`);
+    return { success: false, error: e.message };
+  }
+});
+
+ipcMain.handle('test-printer', async (_, { deviceName }) => {
+  logError(`TESTE DE IMPRESSORA INICIADO: ${deviceName}`);
+  
+  // Se for um endereço direto (USB, COM ou IP), usa o PrinterModule
+  const isDirect = deviceName && (
+    deviceName.toUpperCase().startsWith('USB:') || 
+    deviceName.toUpperCase().startsWith('COM') || 
+    deviceName.includes('.')
+  );
+
+  if (isDirect) {
+    return await PrinterModule.printRaw({
+      type: 'SALE',
+      storeName: 'TESTE DIRETO',
+      items: [{ name: 'TESTE DE CONEXAO', qtd: 1, price: 0 }],
+      total: 0,
+      id: 'TESTE-RAW',
+      date: new Date().toLocaleString()
+    }, deviceName);
+  }
+
+  let win: BrowserWindow | null = null;
+  try {
+    const html = `
+      <html>
+        <style>
+          body { font-family: monospace; width: 58mm; padding: 10px; font-size: 12px; text-align: center; }
+          .bold { font-weight: bold; font-size: 14px; }
+          .line { border-top: 1px dashed #000; margin: 5px 0; }
+        </style>
+        <body>
+          <div class="bold">TESTE DE IMPRESSAO</div>
+          <div>SDG CONTROLE - STATUS OK</div>
+          <div class="line"></div>
+          <div>IMPRESSORA: ${deviceName || 'PADRAO'}</div>
+          <div>DATA: ${new Date().toLocaleString()}</div>
+          <div class="line"></div>
+          <p>Se voce esta lendo isto, a sua configuracao de impressao via Windows esta funcionando perfeitamente!</p>
+          <div class="line"></div>
+          <br/><br/>.
+        </body>
+      </html>
+    `;
+    const tmp = path.join(app.getPath('userData'), 'test_print.html');
+    fs.writeFileSync(tmp, html);
+    win = new BrowserWindow({ show: false, webPreferences: { nodeIntegration: false, contextIsolation: true } });
+    await win.loadFile(tmp);
+    await new Promise(r => setTimeout(r, 500));
+    
+    return new Promise((resolve) => {
+      if (!win) return resolve({ success: false, error: 'Falha ao criar janela' });
+      const printOptions: any = { 
+        silent: !!deviceName,
+        pageSize: { width: 58000, height: 297000 },
+        margins: { marginType: 'none' }
+      };
+      if (deviceName && deviceName.trim() !== '') {
+        printOptions.deviceName = deviceName.trim();
+      }
+
+      win.webContents.print(printOptions, (success, failureReason) => {
+        if (win && !win.isDestroyed()) win.close();
+        resolve({ success, error: failureReason });
+      });
+    });
+  } catch (e: any) {
+    if (win && !win.isDestroyed()) win.close();
+    return { success: false, error: e.message };
+  }
+});
+
+ipcMain.handle('print-raw', async (_, { data, interfaceName }) => {
+  return await PrinterModule.printRaw(data, interfaceName);
+});
+
+ipcMain.handle('print-silent', async (_, { html, deviceName }) => {
+  let win: BrowserWindow | null = null;
+  try {
+    const tmp = path.join(app.getPath('userData'), 'print_silent.html');
+    fs.writeFileSync(tmp, html);
+    win = new BrowserWindow({ show: false, webPreferences: { nodeIntegration: false, contextIsolation: true } });
+    await win.loadFile(tmp);
+    await new Promise(r => setTimeout(r, 500));
+    
+    return new Promise((resolve) => {
+      if (!win) return resolve({ success: false, error: 'Falha ao criar janela' });
+      
+      const printOptions: any = {
+        silent: true,
+        pageSize: { width: 58000, height: 297000 },
+        margins: { marginType: 'none' },
+      };
+      if (deviceName && deviceName.trim() !== '') {
+        printOptions.deviceName = deviceName.trim();
+      }
+
+      win.webContents.print(printOptions, (success, failureReason) => {
+        if (win && !win.isDestroyed()) win.close();
+        resolve({ success, error: failureReason });
+      });
+    });
+  } catch (e: any) {
+    if (win && !win.isDestroyed()) win.close();
+    return { success: false, error: e.message };
+  }
+});
+
+ipcMain.handle('print-repair-receipt', async (_, { repair, storeName, logo, deviceName }) => {
   let win: BrowserWindow | null = null;
   try {
     const html = generateRepairReceiptHTML(repair, storeName, logo);
@@ -503,11 +710,18 @@ ipcMain.handle('print-repair-receipt', async (_, { repair, storeName, logo }) =>
     fs.writeFileSync(tmp, html);
     win = new BrowserWindow({ show: false, webPreferences: { nodeIntegration: false, contextIsolation: true } });
     await win.loadFile(tmp);
-    await new Promise(r => setTimeout(r, 200)); // Delay for rendering
+    await new Promise(r => setTimeout(r, 500));
     
     return new Promise((resolve) => {
       if (!win) return resolve({ success: false, error: 'Falha ao criar janela' });
-      win.webContents.print({ silent: false }, (success, failureReason) => {
+      const printOptions: any = {
+        silent: !!deviceName,
+        pageSize: { width: 58000, height: 297000 },
+        margins: { marginType: 'none' },
+      };
+      if (deviceName && deviceName.trim() !== '') printOptions.deviceName = deviceName.trim();
+
+      win.webContents.print(printOptions, (success, failureReason) => {
         if (win && !win.isDestroyed()) win.close();
         resolve({ success, error: failureReason });
       });
@@ -518,7 +732,7 @@ ipcMain.handle('print-repair-receipt', async (_, { repair, storeName, logo }) =>
   }
 });
 
-ipcMain.handle('print-receipt', async (_, { sale, storeName, logo }) => {
+ipcMain.handle('print-receipt', async (_, { sale, storeName, logo, deviceName }) => {
   let win: BrowserWindow | null = null;
   try {
     const html = generateReceiptHTML(sale, storeName, logo);
@@ -526,11 +740,18 @@ ipcMain.handle('print-receipt', async (_, { sale, storeName, logo }) => {
     fs.writeFileSync(tmp, html);
     win = new BrowserWindow({ show: false, webPreferences: { nodeIntegration: false, contextIsolation: true } });
     await win.loadFile(tmp);
-    await new Promise(r => setTimeout(r, 200)); // Delay for rendering
+    await new Promise(r => setTimeout(r, 500));
 
     return new Promise((resolve) => {
       if (!win) return resolve({ success: false, error: 'Falha ao criar janela' });
-      win.webContents.print({ silent: false }, (success, failureReason) => {
+      const printOptions: any = {
+        silent: !!deviceName,
+        pageSize: { width: 58000, height: 297000 },
+        margins: { marginType: 'none' },
+      };
+      if (deviceName && deviceName.trim() !== '') printOptions.deviceName = deviceName.trim();
+
+      win.webContents.print(printOptions, (success, failureReason) => {
         if (win && !win.isDestroyed()) win.close();
         resolve({ success, error: failureReason });
       });

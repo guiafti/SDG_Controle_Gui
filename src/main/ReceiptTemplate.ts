@@ -79,28 +79,28 @@ export const generateRepairReceiptHTML = (repair: any, storeName: string, logo?:
       <style>
         body { 
           font-family: 'Courier New', Courier, monospace; 
-          width: 80mm; 
+          width: 58mm; 
           margin: 0; 
           padding: 0;
-          font-size: 12px;
-          line-height: 1.3;
+          font-size: 10px;
+          line-height: 1.2;
           color: #000;
         }
         .copy-container {
-          padding: 10px;
+          padding: 5px;
           page-break-after: always;
           border-bottom: 1px dashed #ccc;
-          margin-bottom: 20px;
+          margin-bottom: 10px;
         }
         .text-center { text-align: center; }
-        .header { margin-bottom: 10px; border-bottom: 1px dashed #000; padding-bottom: 10px; }
-        .logo { max-width: 40mm; margin-bottom: 5px; }
-        .store-name { font-weight: bold; font-size: 16px; text-transform: uppercase; }
-        .divider { border-top: 1px dashed #000; margin: 10px 0; }
-        .section { margin-bottom: 10px; }
-        .section-title { font-weight: bold; border-bottom: 1px solid #eee; margin-bottom: 3px; font-size: 10px; }
+        .header { margin-bottom: 8px; border-bottom: 1px dashed #000; padding-bottom: 8px; }
+        .logo { max-width: 35mm; margin-bottom: 5px; }
+        .store-name { font-weight: bold; font-size: 14px; text-transform: uppercase; }
+        .divider { border-top: 1px dashed #000; margin: 8px 0; }
+        .section { margin-bottom: 8px; }
+        .section-title { font-weight: bold; border-bottom: 1px solid #eee; margin-bottom: 2px; font-size: 9px; }
         .info-table { width: 100%; border-collapse: collapse; }
-        .footer { margin-top: 20px; font-size: 10px; }
+        .footer { margin-top: 15px; font-size: 9px; }
         @media print {
           @page { margin: 0; }
           body { margin: 0; }
@@ -136,20 +136,20 @@ export const generateReceiptHTML = (sale: any, storeName: string, logo?: string)
       <style>
         body { 
           font-family: 'Courier New', Courier, monospace; 
-          width: 80mm; 
+          width: 58mm; 
           margin: 0; 
-          padding: 10px;
-          font-size: 12px;
+          padding: 5px;
+          font-size: 10px;
           line-height: 1.2;
         }
         .text-center { text-align: center; }
-        .header { margin-bottom: 10px; border-bottom: 1px dashed #000; padding-bottom: 10px; }
-        .logo { max-width: 50mm; margin-bottom: 5px; }
-        .store-name { font-weight: bold; font-size: 16px; text-transform: uppercase; }
-        .divider { border-top: 1px dashed #000; margin: 10px 0; }
+        .header { margin-bottom: 8px; border-bottom: 1px dashed #000; padding-bottom: 8px; }
+        .logo { max-width: 35mm; margin-bottom: 5px; }
+        .store-name { font-weight: bold; font-size: 14px; text-transform: uppercase; }
+        .divider { border-top: 1px dashed #000; margin: 8px 0; }
         table { width: 100%; border-collapse: collapse; }
-        .totals { margin-top: 10px; font-weight: bold; }
-        .footer { margin-top: 20px; font-size: 10px; }
+        .totals { margin-top: 8px; font-weight: bold; }
+        .footer { margin-top: 15px; font-size: 9px; }
         @media print {
           @page { margin: 0; }
           body { margin: 0; }

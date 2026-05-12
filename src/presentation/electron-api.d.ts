@@ -34,7 +34,13 @@ export interface ElectronAPI {
   saveSettings: (settings: {key: string, value: string}[]) => Promise<any>;
   archiveProduct: (data: {id: string, archived: boolean}) => Promise<any>;
   updateInventoryQuantity: (data: {productId: string, store_id: string, quantity: number}) => Promise<any>;
-  printReceipt: (data: {sale: any, storeName: string, logo?: string}) => Promise<any>;
+  getPrinters: () => Promise<any[]>;
+  testPrinter: (data: {deviceName: string}) => Promise<{success: boolean, error?: string}>;
+  printUSB: (vid: number, pid: number, content: string) => Promise<{success: boolean, error?: string}>;
+  printReceipt: (data: {sale: any, storeName: string, logo?: string, deviceName?: string}) => Promise<any>;
+  printRepairReceipt: (data: {repair: any, storeName: string, logo?: string, deviceName?: string}) => Promise<any>;
+  printRaw: (data: any, interfaceName?: string) => Promise<any>;
+  printSilent: (html: string, deviceName?: string) => Promise<any>;
   uploadProductImage: (data: {barcode: string, base64Data: string}) => Promise<any>;
   minimizeWindow: () => void;
   maximizeWindow: () => void;

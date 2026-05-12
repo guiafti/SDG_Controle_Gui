@@ -51,14 +51,28 @@ SISTEMA SDG CONTROLE - RELATÓRIO DE DESENVOLVIMENTO (ATUALIZADO ABRIL/2026)
     * Vendedor: Acesso restrito ao PDV e consulta de estoque.
 - Dashboard: Visão analítica de faturamento total e mensal (extraído via SQL).
 
-6. PERSONALIZAÇÃO E UX
+6. IMPRESSÃO TÉRMICA USB (ESC/POS) - NOVIDADE MAIO/2026
+-------------------------------------------------------------------------------
+- Integração de Baixo Nível: Utilização das bibliotecas 'escpos' e 'escpos-usb'.
+- Compatibilidade: Otimizado para impressoras Knup (KP-1029) e drivers WinUSB via Zadig.
+- Detecção Inteligente: Novo recurso de auto-detecção de impressoras USB via VID/PID 
+  diretamente na tela de configurações.
+- Formatação Avançada:
+    * Cabeçalhos em Negrito.
+    * Alinhamento centralizado/justificado.
+    * Corte automático de papel (Auto-cut).
+    * Tabelas de itens formatadas para 58mm.
+- Roteamento Automático: O hook 'usePrinter' detecta a configuração 'USB:VID:PID' e
+  direciona a impressão para o motor ESC/POS nativo, mantendo o fallback HTML.
+
+7. PERSONALIZAÇÃO E UX
 -------------------------------------------------------------------------------
 - Identidade Visual: O Admin pode alterar a cor principal do sistema e a logo
   diretamente pelas configurações. As cores são propagadas para todos os botões,
   hovers e notificações via variáveis de ambiente CSS.
 - Barra de Título: Customizada (Frame: false) para um visual moderno e limpo.
 
-7. ESTADO DA SINCRONIZAÇÃO (SUPABASE)
+8. ESTADO DA SINCRONIZAÇÃO (SUPABASE)
 -------------------------------------------------------------------------------
 - Motor de Sincronização: Localizado em src/main/SyncEngine.ts.
 - Status: Preparado para sincronizar Vendas e Produtos com a nuvem.

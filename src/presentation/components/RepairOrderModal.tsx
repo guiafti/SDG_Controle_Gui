@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
+import { usePrinter } from '../hooks/usePrinter';
 
 interface RepairOrderModalProps {
   isOpen: boolean;
@@ -43,6 +44,7 @@ const RepairOrderModal: React.FC<RepairOrderModalProps> = ({ isOpen, onClose, on
   const [returnStoreId, setReturnStoreId] = useState('');
   const [deliveryDate, setDeliveryDate] = useState('');
   const [checklist, setChecklist] = useState<string[]>([]);
+  const { printRepair } = usePrinter();
 
   useEffect(() => {
     if (isOpen) {
@@ -147,6 +149,13 @@ const RepairOrderModal: React.FC<RepairOrderModalProps> = ({ isOpen, onClose, on
 
       if (result.success) {
         toast.success('ORDEM DE SERVIÇO GERADA!', { id: loadingId });
+        
+        // Impressão Direta
+        const settings = await window.api.getSettings();
+        const storeName = settings.find((s: any) => s.key === 'company_name')?.value || 'SDG CONTROLE';
+        const logo = settings.find((s: any) => s.key === 'logo')?.value;
+        await printRepair(repairData, storeName, logo);
+
         onSuccess();
         onClose();
       } else {

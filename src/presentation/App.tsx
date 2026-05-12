@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 import LoginModal from './components/LoginModal';
 import MaintenanceModal from './components/MaintenanceModal';
-import PrintPreviewModal from './components/PrintPreviewModal';
 import PDVHeader from './components/PDVHeader';
 import BarcodeScanner from './components/BarcodeScanner';
 import CartList from './components/CartList';
@@ -19,6 +18,7 @@ import CRM from './pages/CRM';
 import Analytics from './pages/Analytics';
 import NetworkManagement from './pages/NetworkManagement';
 import { CartItem } from '../domain/CartItem';
+import { usePrinter } from './hooks/usePrinter';
 
 import TitleBar from './components/TitleBar';
 
@@ -41,9 +41,8 @@ const App: React.FC = () => {
   const [desconto, setDesconto] = useState(0);
   const [logoApp, setLogoApp] = useState('');
 
-  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
-  const [previewData, setPreviewData] = useState<any>(null);
   const [tasks, setTasks] = useState<any[]>([]);
+  const { printSale } = usePrinter();
 
   const [currentTime, setCurrentTime] = useState(new Date());
 
@@ -228,40 +227,15 @@ const App: React.FC = () => {
       if (result.success) {
         toast.success('VENDA CONCLUÍDA!', { id: loadingId });
         
-        // Dados para o preview do comprovante
-        setPreviewData({
-          sale: { ...saleData, id: result.saleId, created_at: new Date().toISOString() },
-          storeName: loja,
-          logo: logoApp
-        });
-        setIsPreviewOpen(true);
-        
-        // Limpar carrinho após abrir o preview
+        // Impressão Direta usando o Hook
+        await printSale({ ...saleData, id: result.saleId, created_at: new Date().toISOString() }, loja, logoApp);
+
+        // Limpar carrinho
         setCarrinho([]);
         setDesconto(0);
       }
     } catch (error) { 
       toast.error('Erro ao salvar venda!', { id: loadingId }); 
-    }
-  };
-
-  const confirmPrint = async () => {
-    if (!previewData) return;
-    
-    setIsPreviewOpen(false);
-    const loadingId = toast.loading('Enviando para impressora...');
-    
-    try {
-      const result = await window.api.printReceipt(previewData);
-      if (result && result.success) {
-        toast.success('Enviado para impressora!', { id: loadingId });
-      } else {
-        toast.error(`Erro na impressão: ${result?.error || 'Desconhecido'}`, { id: loadingId });
-      }
-    } catch (error: any) {
-      toast.error(`Falha ao imprimir: ${error.message}`, { id: loadingId });
-    } finally {
-      setPreviewData(null);
     }
   };
 
@@ -307,15 +281,6 @@ const App: React.FC = () => {
                 <FinancialPanel totalItems={totalVenda} discount={desconto} onDiscountChange={setDesconto} onFinish={handleFinishSale} />
               </div>
             </div>
-
-            {isPreviewOpen && (
-              <PrintPreviewModal 
-                isOpen={isPreviewOpen} 
-                onClose={() => setIsPreviewOpen(false)} 
-                onConfirm={confirmPrint} 
-                data={previewData} 
-              />
-            )}
           </div>
         )}
         {view === 'admin' && (

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 import RepairOrderModal from '../components/RepairOrderModal';
-import PrintPreviewModal from '../components/PrintPreviewModal';
+import { usePrinter } from '../hooks/usePrinter';
 
 const WORKFLOW_STEPS = [
   'Na Loja (Aguardando Envio)',
@@ -26,9 +26,7 @@ const Repairs: React.FC = () => {
   const [isEditingNotes, setIsEditingNotes] = useState(false);
   const [localNotes, setLocalNotes] = useState('');
 
-  // Print Preview State
-  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
-  const [previewData, setPreviewData] = useState<any>(null);
+  const { printRepair } = usePrinter();
 
   const currentStoreId = localStorage.getItem('selectedStoreId') || '1';
 
@@ -165,48 +163,18 @@ const Repairs: React.FC = () => {
     setIsEditingNotes(false);
   };
 
-  const handlePrintRepair = async () => {
-    if (!selectedOrder) {
-      console.warn('Print: No order selected');
-      return;
-    }
+  const handlePrintRepair = async (order?: any) => {
+    const repairToPrint = order || selectedOrder;
+    if (!repairToPrint) return;
     
     try {
       const settings = await window.api.getSettings();
       const storeName = settings.find((s: any) => s.key === 'company_name')?.value || 'SDG CONTROLE';
-      const logo = settings.find((s: any) => s.key === 'company_logo')?.value;
+      const logo = settings.find((s: any) => s.key === 'logo')?.value;
       
-      setPreviewData({
-        repair: selectedOrder,
-        storeName,
-        logo
-      });
-      setIsPreviewOpen(true);
+      await printRepair(repairToPrint, storeName, logo);
     } catch (error: any) {
-      toast.error('Erro ao preparar visualização');
-    }
-  };
-
-  const confirmPrint = async () => {
-    if (!previewData) return;
-    
-    setIsPreviewOpen(false);
-    const loadingId = toast.loading('Enviando para impressora...');
-    
-    try {
-      const result = await window.api.printRepairReceipt({ 
-        repair: previewData.repair, 
-        storeName: previewData.storeName, 
-        logo: previewData.logo 
-      });
-      
-      if (result && result.success) {
-        toast.success('Enviado para impressora!', { id: loadingId });
-      } else {
-        toast.error(`Erro na impressão: ${result?.error || 'Desconhecido'}`, { id: loadingId });
-      }
-    } catch (error: any) {
-      toast.error(`Falha ao imprimir: ${error.message || 'Erro de rede/comunicação'}`, { id: loadingId });
+      toast.error('Erro ao imprimir');
     }
   };
 
@@ -376,7 +344,7 @@ const Repairs: React.FC = () => {
                           </div>
                           <div className="flex gap-2">
                             <button 
-                              onClick={() => { setSelectedOrder(r); handlePrintRepair(); }}
+                              onClick={() => handlePrintRepair(r)}
                               className="flex-1 bg-slate-50 text-slate-600 p-2 rounded-lg border border-slate-200 flex items-center justify-center gap-1.5 text-[10px] font-bold uppercase hover:bg-slate-100 transition-colors"
                             >
                               <i className="ph ph-printer text-lg"></i> Imprimir
@@ -593,15 +561,6 @@ const Repairs: React.FC = () => {
       )}
 
       <RepairOrderModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSuccess={fetchData} />
-      
-      {previewData && (
-        <PrintPreviewModal 
-          isOpen={isPreviewOpen} 
-          onClose={() => setIsPreviewOpen(false)} 
-          onConfirm={confirmPrint} 
-          data={previewData} 
-        />
-      )}
     </div>
   );
 };
