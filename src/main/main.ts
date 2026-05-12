@@ -598,14 +598,16 @@ ipcMain.handle('debug-print', async (_, { deviceName }) => {
 ipcMain.handle('test-printer', async (_, { deviceName }) => {
   logError(`TESTE DE IMPRESSORA INICIADO: ${deviceName}`);
   
-  // Se for um endereço direto (USB, COM ou IP), usa o PrinterModule
-  const isDirect = deviceName && (
-    deviceName.toUpperCase().startsWith('USB:') || 
-    deviceName.toUpperCase().startsWith('COM') || 
-    deviceName.includes('.')
-  );
+  // Se for endereço USB direto
+  if (deviceName && deviceName.toUpperCase().startsWith('USB:')) {
+    const parts = deviceName.split(':');
+    const vid = parseInt(parts[1], 16);
+    const pid = parseInt(parts[2], 16);
+    return await PrinterModule.printUSB(vid, pid, "TESTE DE IMPRESSAO DIRETA (MODO PYTHON)");
+  }
 
-  if (isDirect) {
+  // Se for porta COM ou IP
+  if (deviceName && (deviceName.toUpperCase().startsWith('COM') || deviceName.includes('.'))) {
     return await PrinterModule.printRaw({
       type: 'SALE',
       storeName: 'TESTE DIRETO',
@@ -616,6 +618,20 @@ ipcMain.handle('test-printer', async (_, { deviceName }) => {
     }, deviceName);
   }
 
+  // Caso seja um nome de impressora do Windows (ex: POS58 Printer) e o tipo for escpos
+  // Vamos tentar enviar um comando bruto via PrinterModule
+  const res = await PrinterModule.printRaw({
+    type: 'SALE',
+    storeName: 'TESTE WINDOWS RAW',
+    items: [{ name: 'TESTE DE FILA', qtd: 1, price: 0 }],
+    total: 0,
+    id: 'TESTE-WIN',
+    date: new Date().toLocaleString()
+  }, `printer:${deviceName}`);
+
+  if (res.success) return res;
+
+  // Se o modo RAW falhar ou se não for um endereço direto, usamos o Metodo HTML (Fallback)
   let win: BrowserWindow | null = null;
   try {
     const html = `
@@ -627,12 +643,12 @@ ipcMain.handle('test-printer', async (_, { deviceName }) => {
         </style>
         <body>
           <div class="bold">TESTE DE IMPRESSAO</div>
-          <div>SDG CONTROLE - STATUS OK</div>
+          <div>SDG CONTROLE - MODO HTML</div>
           <div class="line"></div>
           <div>IMPRESSORA: ${deviceName || 'PADRAO'}</div>
           <div>DATA: ${new Date().toLocaleString()}</div>
           <div class="line"></div>
-          <p>Se voce esta lendo isto, a sua configuracao de impressao via Windows esta funcionando perfeitamente!</p>
+          <p>Se voce esta lendo isto, a sua impressora esta funcionando via Driver do Windows!</p>
           <div class="line"></div>
           <br/><br/>.
         </body>

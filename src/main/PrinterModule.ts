@@ -41,11 +41,17 @@ export class PrinterModule {
           }
 
           try {
+            // Inicializa a impressora (ESC @) como no Python
+            printer.pure(Buffer.from([0x1b, 0x40]));
+
             if (typeof data === 'string') {
-              printer.font('a').align('ct').size(1, 1).text(data);
+              // Limpa acentos para evitar caracteres estranhos (estratégia ascii replace do Python)
+              const cleanString = data.normalize('NFD').replace(/[\u0300-\u036f]/g, "");
+              printer.font('a').align('ct').size(1, 1).text(cleanString);
             } else {
               // --- FORMATAÇÃO AVANÇADA COM ESCPOS ---
-              printer.font('a').align('ct').size(1, 1).style('b').text(data.storeName.toUpperCase()).style('normal');
+              const storeName = data.storeName.normalize('NFD').replace(/[\u0300-\u036f]/g, "").toUpperCase();
+              printer.font('a').align('ct').size(1, 1).style('b').text(storeName).style('normal');
               printer.text('--------------------------------');
               
               if (data.type === 'SALE') {
@@ -185,29 +191,52 @@ export class PrinterModule {
               device.open();
               const iface = device.interfaces[0];
               
-              // Tenta desanexar driver do kernel (necessário em alguns casos)
-              if (os.platform() !== 'win32' && iface.isKernelDriverActive()) {
-                iface.detachKernelDriver();
-              }
+              // No Windows, se o Spooler estiver tentando usar a impressora,
+              // o claim() pode falhar com LIBUSB_ERROR_ACCESS.
+              // Tentamos desanexar se necessário (mais comum em Linux, mas ajuda na robustez).
+              try {
+                if (iface.isKernelDriverActive()) {
+                  iface.detachKernelDriver();
+                }
+              } catch (e) {}
 
               iface.claim();
               const outEndpoint = iface.endpoints.find((e: any) => e.direction === 'out');
 
               if (!outEndpoint) {
                 iface.release(true, () => device.close());
-                return resolve({ success: false, error: "Nao foi possivel encontrar o endpoint de saida da impressora." });
+                return resolve({ success: false, error: "Nao foi possivel encontrar o endpoint de saida." });
               }
 
               outEndpoint.transfer(buffer, (err: any) => {
                 iface.release(true, () => {
                   device.close();
-                  if (err) resolve({ success: false, error: `Erro na transferencia USB: ${err.message}` });
+                  if (err) resolve({ success: false, error: `Erro na transferencia: ${err.message}` });
                   else resolve({ success: true });
                 });
               });
             } catch (usbErr: any) {
               try { device.close(); } catch (e) {}
-              resolve({ success: false, error: `Falha ao abrir dispositivo USB: ${usbErr.message}` });
+              
+              // SE DER ERRO DE ACESSO (LIBUSB_ERROR_ACCESS), TENTAMOS O FALLBACK PARA FILA DO WINDOWS
+              if (usbErr.message.includes('LIBUSB_ERROR_ACCESS')) {
+                console.warn("Acesso direto negado. Tentando via fila do Windows (Modo Fallback)...");
+                // Tenta usar o printRaw que usa a fila do Windows (que o Spooler permite)
+                const fallbackData = typeof data === 'string' ? { 
+                  type: 'SALE' as const, 
+                  storeName: 'RECIBO', 
+                  items: [{ name: data, qtd: 1, total: 0 }], 
+                  total: 0 
+                } : data;
+                
+                const fallbackRes = await PrinterModule.printRaw(fallbackData, `printer:POS58 Printer`);
+                return resolve(fallbackRes);
+              }
+
+              const msg = usbErr.message.includes('LIBUSB_ERROR_ACCESS') 
+                ? "Acesso Negado. Feche outros programas ou mude para o modo HTML."
+                : usbErr.message;
+              resolve({ success: false, error: `Falha USB: ${msg}` });
             }
           });
         } catch (e: any) {
@@ -245,22 +274,23 @@ export class PrinterModule {
       // Tenta escrever diretamente na porta serial emulada pelo driver USB.
       if (interfaceName && (interfaceName.toUpperCase().startsWith('COM') || interfaceName.startsWith('printer:'))) {
         const portName = interfaceName.replace('printer:', '').trim();
-        const tmpPath = path.join(os.now ? Date.now() : new Date().getTime(), `escpos_${Date.now()}.bin`);
-        // Note: fix path.join(os.tmpdir(), ...) - corrected below in actual write
         const actualTmpPath = path.join(os.tmpdir(), `escpos_${Date.now()}.bin`);
         fs.writeFileSync(actualTmpPath, buffer);
 
-        // Copia o binário diretamente para a porta COM (método mais confiável no Windows)
+        // O comando 'print /d:' é o padrão do Windows para enviar arquivos brutos para o spooler.
+        // Colocamos o nome da impressora entre aspas para suportar espaços (ex: "POS58 Printer")
         const { exec } = require('child_process');
         return new Promise((resolve) => {
-          const command = `cmd /c copy /b "${actualTmpPath}" ${portName}`;
+          const command = `cmd /c print /d:"${portName}" "${actualTmpPath}"`;
           exec(command, (error: any) => {
+            // Remove o arquivo temporário após um tempo
             setTimeout(() => { try { fs.unlinkSync(actualTmpPath); } catch (e) {} }, 5000);
+            
             if (error) {
-              // Se falhar na porta COM, informa claramente que deve usar o modo HTML
+              console.error(`Erro no comando print: ${error.message}`);
               resolve({
                 success: false,
-                error: `Falha ao enviar para ${portName} via USB. Use o Metodo HTML (Windows) nas configuracoes — ele funciona com o driver da KP-1029.`
+                error: `Falha ao enviar para ${portName}. Use o Metodo HTML se o driver nao aceitar comandos brutos.`
               });
             } else {
               resolve({ success: true });
