@@ -1,5 +1,6 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
+import './browserMock'
 import App from './App'
 import './index.css'
 import { Toaster } from 'react-hot-toast'

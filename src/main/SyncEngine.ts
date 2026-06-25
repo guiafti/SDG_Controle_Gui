@@ -1,5 +1,6 @@
 import { query, run, get } from './database';
 import { createClient } from '@supabase/supabase-js';
+import ws from 'ws';
 import * as dotenv from 'dotenv';
 import path from 'path';
 import fs from 'fs';
@@ -45,7 +46,11 @@ export class SyncEngine {
       const key = process.env.SUPABASE_ANON_KEY || '';
 
       if (url && key && url !== 'SUA_URL_DO_SUPABASE_AQUI' && url !== '') {
-        this.supabase = createClient(url, key);
+        this.supabase = createClient(url, key, {
+          realtime: {
+            transport: ws
+          }
+        });
         logSync('Cliente Supabase instanciado com sucesso.');
       } else {
         logSync('ERRO: Supabase não configurado ou chaves inválidas no .env');

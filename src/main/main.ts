@@ -8,6 +8,7 @@ import { GuardianProtocol } from './GuardianProtocol';
 import { SyncEngine } from './SyncEngine';
 import { randomUUID } from 'node:crypto';
 import { createClient } from '@supabase/supabase-js';
+import ws from 'ws';
 
 // Configuração simples do autoUpdater
 autoUpdater.autoDownload = true;
@@ -44,7 +45,11 @@ const getSupabase = () => {
   const url = process.env.SUPABASE_URL || '';
   const key = process.env.SUPABASE_ANON_KEY || '';
   if (url && url !== 'SUA_URL_DO_SUPABASE_AQUI' && url !== '') {
-    supabaseClient = createClient(url, key);
+    supabaseClient = createClient(url, key, {
+      realtime: {
+        transport: ws
+      }
+    });
     return supabaseClient;
   }
   return null;
@@ -65,6 +70,7 @@ function createWindow() {
   });
   if (!app.isPackaged) {
     win.loadURL('http://127.0.0.1:5173');
+    win.webContents.openDevTools();
   } else {
     win.loadFile(path.join(__dirname, '..', 'index.html'));
   }

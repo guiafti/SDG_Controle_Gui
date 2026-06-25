@@ -224,4 +224,4 @@ const ProductSearchModal: React.FC<ProductSearchModalProps> = ({ isOpen, onClose
   );
 };
 
-export default ProductSearchModal;rchModal;
+export default ProductSearchModal;
