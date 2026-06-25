@@ -1,6 +1,6 @@
 // Mock do window.api para rodar a aplicação perfeitamente no navegador/Vercel (sem Electron)
 if (typeof window !== 'undefined' && !window.api) {
-  console.log('[BROWSER MOCK] Carregando simulador de banco de dados local (localStorage)...');
+  console.log('[BROWSER MOCK] Carregando simulador de banco de dados e impressão (localStorage)...');
 
   // Helpers para persistência no LocalStorage
   const getStorage = <T>(key: string, defaultValue: T): T => {
@@ -17,6 +17,251 @@ if (typeof window !== 'undefined' && !window.api) {
       localStorage.setItem(`sdg_${key}`, JSON.stringify(value));
     } catch (e) {
       console.error('[BROWSER MOCK] Erro ao gravar no localStorage:', e);
+    }
+  };
+
+  // --- GERADORES DE TEMPLATE DE IMPRESSÃO (COPIADOS DO BACKEND) ---
+  const generateReceiptHTML = (sale: any, storeName: string, logo?: string) => {
+    const date = new Date().toLocaleString('pt-BR');
+    const itemsHTML = sale.items.map((item: any) => `
+      <tr>
+        <td style="padding: 5px 0;">${item.nome}<br/><small>${item.qtd}x ${(Number(item.preco) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</small></td>
+        <td style="text-align: right; vertical-align: top; padding: 5px 0;">${((Number(item.qtd) || 0) * (Number(item.preco) || 0)).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
+      </tr>
+    `).join('');
+
+    const subtotal = sale.items.reduce((acc: number, item: any) => acc + ((Number(item.preco) || 0) * (Number(item.qtd) || 0)), 0);
+
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <style>
+          body { 
+            font-family: 'Courier New', Courier, monospace; 
+            width: 58mm; 
+            margin: 0; 
+            padding: 5px;
+            font-size: 10px;
+            line-height: 1.2;
+          }
+          .text-center { text-align: center; }
+          .header { margin-bottom: 8px; border-bottom: 1px dashed #000; padding-bottom: 8px; }
+          .logo { max-width: 35mm; margin-bottom: 5px; }
+          .store-name { font-weight: bold; font-size: 14px; text-transform: uppercase; }
+          .divider { border-top: 1px dashed #000; margin: 8px 0; }
+          table { width: 100%; border-collapse: collapse; }
+          .totals { margin-top: 8px; font-weight: bold; }
+          .footer { margin-top: 15px; font-size: 9px; }
+          @media print {
+            @page { margin: 0; }
+            body { margin: 0; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="header text-center">
+          ${logo ? `<img src="${logo}" class="logo" />` : ''}
+          <div class="store-name">${storeName}</div>
+          <div>Comprovante de Venda</div>
+          <div>Data: ${date}</div>
+        </div>
+
+        <table>
+          <thead>
+            <tr style="border-bottom: 1px solid #000;">
+              <th style="text-align: left;">DESCRIÇÃO</th>
+              <th style="text-align: right;">TOTAL</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${itemsHTML}
+          </tbody>
+        </table>
+
+        <div class="divider"></div>
+
+        <table class="totals">
+          <tr>
+            <td>SUBTOTAL:</td>
+            <td style="text-align: right;">${subtotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
+          </tr>
+          ${sale.discount > 0 ? `
+            <tr>
+              <td>DESCONTO:</td>
+              <td style="text-align: right;">- ${(Number(sale.discount) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
+            </tr>
+          ` : ''}
+          <tr style="font-size: 18px;">
+            <td>TOTAL PAGO:</td>
+            <td style="text-align: right;">${(Number(sale.total) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
+          </tr>
+        </table>
+
+        <div class="divider"></div>
+        
+        <div class="text-center">
+          <div>Forma de Pagamento: <strong>${sale.payment_method}</strong></div>
+          <div>Vendedor: ${sale.vendedor}</div>
+        </div>
+
+        <div class="footer text-center">
+          <div>Obrigado pela preferência!</div>
+          <div>SDG CONTROL Enterprise</div>
+          <div style="margin-top: 5px;">${String(sale.id || '').substring(0, 8)}</div>
+        </div>
+      </body>
+      </html>
+    `;
+  };
+
+  const generateRepairReceiptHTML = (repair: any, storeName: string, logo?: string) => {
+    const dateStr = repair.created_at ? new Date(repair.created_at).toLocaleString('pt-BR') : new Date().toLocaleString('pt-BR');
+    const deliveryDate = repair.delivery_date ? new Date(repair.delivery_date).toLocaleDateString('pt-BR') : 'Não Definido';
+    const price = Number(repair.price) || 0;
+    
+    const renderCopy = (title: string) => `
+      <div class="copy-container">
+        <div class="header text-center">
+          ${logo ? `<img src="${logo}" class="logo" />` : ''}
+          <div class="store-name">${storeName}</div>
+          <div style="font-size: 14px; font-weight: bold; margin-top: 5px;">ORDEM DE SERVIÇO</div>
+          <div style="font-size: 18px; font-weight: bold;">#${(repair.id || '00000000').substring(0, 8)}</div>
+          <div style="margin-top: 5px;">Via: ${title}</div>
+        </div>
+
+        <div class="section">
+          <div class="section-title">DADOS DO CLIENTE</div>
+          <div>NOME: ${repair.customer_name || 'N/A'}</div>
+          <div>FONE: ${repair.customer_phone || 'N/A'}</div>
+        </div>
+
+        <div class="section">
+          <div class="section-title">EQUIPAMENTO</div>
+          <div style="font-size: 14px; font-weight: bold;">${repair.device_brand || ''} ${repair.device_model || ''}</div>
+          <div>S/N: ${repair.serial_number || 'N/A'}</div>
+        </div>
+
+        <div class="section">
+          <div class="section-title">DEFEITO RELATADO</div>
+          <div style="font-style: italic;">${repair.issue_description || 'N/A'}</div>
+        </div>
+
+        ${repair.checklist ? `
+          <div class="section">
+            <div class="section-title">ITENS DEIXADOS</div>
+            <div>${repair.checklist}</div>
+          </div>
+        ` : ''}
+
+        <div class="divider"></div>
+
+        <table class="info-table">
+          <tr>
+            <td>DATA ENTRADA:</td>
+            <td style="text-align: right;">${dateStr}</td>
+          </tr>
+          <tr>
+            <td>PREVISÃO:</td>
+            <td style="text-align: right; font-weight: bold;">${deliveryDate}</td>
+          </tr>
+          <tr style="font-size: 16px; font-weight: bold;">
+            <td>VALOR ORÇADO:</td>
+            <td style="text-align: right;">R$ ${price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+          </tr>
+        </table>
+
+        <div class="divider"></div>
+
+        <div class="section" style="margin-top: 20px;">
+          <div style="border-top: 1px solid #000; margin-top: 30px; text-align: center; font-size: 10px;">
+            ASSINATURA DO CLIENTE
+          </div>
+        </div>
+
+        <div class="footer text-center">
+          <div>SDG CONTROL - Gestão Profissional</div>
+          <div style="margin-top: 10px; font-size: 9px;">
+            Ao assinar, o cliente concorda com os termos de garantia e condições de serviço da loja.
+          </div>
+        </div>
+      </div>
+    `;
+
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <style>
+          body { 
+            font-family: 'Courier New', Courier, monospace; 
+            width: 58mm; 
+            margin: 0; 
+            padding: 0;
+            font-size: 10px;
+            line-height: 1.2;
+            color: #000;
+          }
+          .copy-container {
+            padding: 5px;
+            page-break-after: always;
+            border-bottom: 1px dashed #ccc;
+            margin-bottom: 10px;
+          }
+          .text-center { text-align: center; }
+          .header { margin-bottom: 8px; border-bottom: 1px dashed #000; padding-bottom: 8px; }
+          .logo { max-width: 35mm; margin-bottom: 5px; }
+          .store-name { font-weight: bold; font-size: 14px; text-transform: uppercase; }
+          .divider { border-top: 1px dashed #000; margin: 8px 0; }
+          .section { margin-bottom: 8px; }
+          .section-title { font-weight: bold; border-bottom: 1px solid #eee; margin-bottom: 2px; font-size: 9px; }
+          .info-table { width: 100%; border-collapse: collapse; }
+          .footer { margin-top: 15px; font-size: 9px; }
+          @media print {
+            @page { margin: 0; }
+            body { margin: 0; }
+            .copy-container:last-child { border-bottom: none; page-break-after: auto; }
+          }
+        </style>
+      </head>
+      <body>
+        ${renderCopy('CLIENTE')}
+        <div style="height: 40px; border-bottom: 2px dashed #000; margin: 20px 0;"></div>
+        ${renderCopy('LABORATÓRIO / APARELHO')}
+      </body>
+      </html>
+    `;
+  };
+
+  // --- HELPER DE IMPRESSÃO NO NAVEGADOR ---
+  const printHtmlInBrowser = (html: string) => {
+    console.log('[BROWSER MOCK] Acionando janela de impressão nativa...');
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'fixed';
+    iframe.style.right = '0';
+    iframe.style.bottom = '0';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = '0';
+    iframe.style.zIndex = '-9999';
+    document.body.appendChild(iframe);
+
+    const doc = iframe.contentDocument || iframe.contentWindow?.document;
+    if (doc) {
+      doc.open();
+      doc.write(html);
+      doc.close();
+
+      // Pequeno delay para garantir renderização de fontes/estilos
+      setTimeout(() => {
+        iframe.contentWindow?.focus();
+        iframe.contentWindow?.print();
+        setTimeout(() => {
+          document.body.removeChild(iframe);
+        }, 2000);
+      }, 500);
     }
   };
 
@@ -638,7 +883,6 @@ if (typeof window !== 'undefined' && !window.api) {
     // --- PAINEL FINANCEIRO / DASHBOARD ---
     getFinancialSummary: async () => {
       const transactions = getStorage('transactions', []);
-      const commissions = getStorage('commissions', []);
       const products = getStorage('products', defaultProducts);
       const sales = getStorage('sales', []);
 
@@ -749,48 +993,110 @@ if (typeof window !== 'undefined' && !window.api) {
       return title ? title.value : 'SDG CONTROLE';
     },
 
-    // --- IMPRESSORAS E UTILS (STUBS) ---
+    // --- IMPRESSORAS E UTILS COM SUPORTE A FALLBACK HTML NO NAVEGADOR ---
     getPrinters: async () => {
-      return [{ name: 'IMPRESSORA MOCK BROWSER', isDefault: true }];
+      return [{ name: 'IMPRESSORA MOCK BROWSER (NATIVO BROWSER)', isDefault: true }];
     },
 
     testPrinter: async (data: { deviceName: string }) => {
-      console.log('[BROWSER MOCK] Testando impressora:', data.deviceName);
+      console.log('[BROWSER MOCK] Imprimindo cupom de teste no navegador para:', data.deviceName);
+      const testHtml = `
+        <html>
+          <style>
+            body { font-family: monospace; width: 58mm; padding: 10px; font-size: 12px; text-align: center; }
+            .bold { font-weight: bold; font-size: 14px; }
+            .line { border-top: 1px dashed #000; margin: 5px 0; }
+          </style>
+          <body>
+            <div class="bold">TESTE DE IMPRESSÃO</div>
+            <div>SDG CONTROLE - WEB FALLBACK</div>
+            <div class="line"></div>
+            <div>IMPRESSORA: ${data.deviceName || 'PADRÃO'}</div>
+            <div>DATA: ${new Date().toLocaleString()}</div>
+            <div class="line"></div>
+            <p>Se você está lendo isto, a sua impressora está configurada corretamente no seu Windows e o navegador conseguiu enviar o documento!</p>
+            <div class="line"></div>
+            <br/><br/>.
+          </body>
+        </html>
+      `;
+      printHtmlInBrowser(testHtml);
       return { success: true };
     },
 
     printUSB: async (vid: number, pid: number, content: string) => {
-      console.log('[BROWSER MOCK] Imprimindo via USB (VID:', vid, 'PID:', pid, '):', content);
+      console.log('[BROWSER MOCK] Fallback USB print to browser printer:', content);
+      // Fallback para impressão via diálogo do navegador
+      let textContent = '';
+      if (typeof content === 'object') {
+        textContent = JSON.stringify(content, null, 2);
+      } else {
+        textContent = String(content);
+      }
+      
+      const simpleHtml = `
+        <html>
+        <body style="font-family: monospace; font-size: 11px; width: 58mm;">
+          <pre style="white-space: pre-wrap; word-wrap: break-word;">${textContent}</pre>
+        </body>
+        </html>
+      `;
+      printHtmlInBrowser(simpleHtml);
       return { success: true };
     },
 
-    printReceipt: async (data: any) => {
-      console.log('[BROWSER MOCK] Imprimindo Cupom de Venda:', data);
+    printReceipt: async (data: { sale: any, storeName: string, logo?: string }) => {
+      const html = generateReceiptHTML(data.sale, data.storeName, data.logo);
+      printHtmlInBrowser(html);
       return { success: true };
     },
 
-    printRepairReceipt: async (data: any) => {
-      console.log('[BROWSER MOCK] Imprimindo Cupom de Ordem de Serviço:', data);
+    printRepairReceipt: async (data: { repair: any, storeName: string, logo?: string }) => {
+      const html = generateRepairReceiptHTML(data.repair, data.storeName, data.logo);
+      printHtmlInBrowser(html);
       return { success: true };
     },
 
     printRaw: async (data: any) => {
-      console.log('[BROWSER MOCK] Imprimindo RAW:', data);
+      console.log('[BROWSER MOCK] Imprimindo RAW convertido para HTML');
+      let html = '';
+      if (data && data.type === 'SALE') {
+        html = generateReceiptHTML({
+          id: data.id,
+          total: data.total,
+          discount: 0,
+          payment_method: data.paymentMethod || 'DINHEIRO',
+          vendedor: data.vendedor || 'Vendedor',
+          items: data.items.map((i: any) => ({ nome: i.name, qtd: i.qtd, preco: i.total / i.qtd }))
+        }, data.storeName);
+      } else if (data && data.type === 'OS') {
+        html = generateRepairReceiptHTML({
+          id: data.id,
+          price: data.total,
+          customer_name: data.customer,
+          device_brand: '',
+          device_model: data.items[0]?.name || '',
+          created_at: new Date()
+        }, data.storeName);
+      } else {
+        html = `<html><body style="font-family: monospace; font-size: 11px; width: 58mm;"><pre>${JSON.stringify(data, null, 2)}</pre></body></html>`;
+      }
+      printHtmlInBrowser(html);
       return { success: true };
     },
 
     printSilent: async (html: string) => {
-      console.log('[BROWSER MOCK] Imprimindo silencioso (HTML):', html.substring(0, 100) + '...');
+      printHtmlInBrowser(html);
       return { success: true };
     },
 
     usbDirectPrint: async (data: any) => {
-      console.log('[BROWSER MOCK] Impressão USB direta buffer:', data.buffer);
+      console.log('[BROWSER MOCK] Impressão USB direta solicitada no browser - Fallback no-op');
       return { success: true };
     },
 
     listUsbDevices: async () => {
-      return [{ vendorId: 10473, productId: 649, product: 'IMPRESSORA TERMICA MOCK' }];
+      return [{ vendorId: 10473, productId: 649, product: 'IMPRESSORA TERMICA BROWSER' }];
     },
 
     getSyncStatus: async () => {
