@@ -230,7 +230,7 @@ export class PrinterModule {
                     const fallbackData = typeof data === 'string' ? { 
                       type: 'SALE' as const, storeName: 'RECIBO', items: [{ name: data, qtd: 1, total: 0 }], total: 0 
                     } : data;
-                    return resolve(PrinterModule.printRaw(fallbackData, "printer:POS58 Printer"));
+                    return resolve(PrinterModule.printRaw(fallbackData, ""));
                   }
                   resolve({ success: false, error: `Falha USB: ${usbErr.message}` });
                 }
@@ -270,40 +270,64 @@ export class PrinterModule {
         });
       }
 
-      // --- ENVIO DIRETO VIA PORTA SERIAL/USB (Windows) ---
-      // Funciona para impressoras em portas como COM3, COM4, etc.
-      // Tenta escrever diretamente na porta serial emulada pelo driver USB.
-      if (interfaceName && (interfaceName.toUpperCase().startsWith('COM') || interfaceName.startsWith('printer:'))) {
-        const portName = interfaceName.replace('printer:', '').trim();
-        const actualTmpPath = path.join(os.tmpdir(), `escpos_${Date.now()}.bin`);
+      // --- ENVIO NATIVO VIA SPOOLER DO WINDOWS (RAW winspool.drv) ---
+      // Suporta qualquer impressora instalada no Windows (USB, Rede, Bluetooth) usando Spooler Nativo
+      if (process.platform === 'win32') {
+        const printerName = (interfaceName || '').replace(/^printer:/i, '').trim();
+        const actualTmpPath = path.join(os.tmpdir(), `sdg_ticket_${Date.now()}.bin`);
         fs.writeFileSync(actualTmpPath, buffer);
 
-        // O comando 'print /d:' é o padrão do Windows para enviar arquivos brutos para o spooler.
-        // Colocamos o nome da impressora entre aspas para suportar espaços (ex: "POS58 Printer")
         const { exec } = require('child_process');
-        return new Promise((resolve) => {
-          const command = `cmd /c print /d:"${portName}" "${actualTmpPath}"`;
-          exec(command, (error: any) => {
-            // Remove o arquivo temporário após um tempo
-            setTimeout(() => { try { fs.unlinkSync(actualTmpPath); } catch (e) {} }, 5000);
-            
-            if (error) {
-              console.error(`Erro no comando print: ${error.message}`);
-              resolve({
-                success: false,
-                error: `Falha ao enviar para ${portName}. Use o Metodo HTML se o driver nao aceitar comandos brutos.`
-              });
-            } else {
-              resolve({ success: true });
+        const scriptCandidates = [
+          path.join((process as any).resourcesPath || '', 'print-raw-windows.ps1'),
+          path.join((process as any).resourcesPath || '', 'app.asar.unpacked', 'dist', 'main', 'print-raw-windows.ps1'),
+          path.join(process.cwd(), 'src', 'main', 'print-raw-windows.ps1'),
+          path.join(process.cwd(), 'dist', 'main', 'print-raw-windows.ps1'),
+          path.join(__dirname, 'print-raw-windows.ps1')
+        ];
+        let ps1Path = scriptCandidates.find((p: string) => !p.includes('.asar') && fs.existsSync(p));
+        if (!ps1Path) {
+          const tmpPs1 = path.join(os.tmpdir(), 'sdg_print_raw.ps1');
+          try {
+            const asarSource = scriptCandidates.find((p: string) => fs.existsSync(p));
+            if (asarSource) {
+              fs.writeFileSync(tmpPs1, fs.readFileSync(asarSource));
             }
+          } catch (e) {}
+          ps1Path = tmpPs1;
+        }
+
+        const printerParam = printerName ? ` -printerName "${printerName.replace(/"/g, '`"')}"` : '';
+        const cmd = `powershell.exe -NoProfile -ExecutionPolicy Bypass -File "${ps1Path}" -filePath "${actualTmpPath}"${printerParam}`;
+
+        return new Promise((resolve) => {
+          exec(cmd, { timeout: 10000 }, (error: any, stdout: string, stderr: string) => {
+            try { fs.unlinkSync(actualTmpPath); } catch (e) {}
+
+            if (stdout && stdout.trim()) {
+              try {
+                const parsed = JSON.parse(stdout.trim());
+                return resolve(parsed);
+              } catch (e) {}
+            }
+
+            if (error) {
+              console.error('[Printer] Erro no Spooler do Windows:', stderr || error.message);
+              return resolve({
+                success: false,
+                error: `Falha na impressora do Windows: ${stderr || error.message}`
+              });
+            }
+
+            resolve({ success: true, message: stdout ? stdout.trim() : 'Impressão enviada com sucesso!' });
           });
         });
       }
 
-      // --- SEM INTERFACE RECONHECIDA ---
+      // --- SEM INTERFACE RECONHECIDA (OUTROS SOs) ---
       return {
         success: false,
-        error: 'Interface nao reconhecida. Use um IP de rede, uma porta COM (ex: COM3) ou mude para o Metodo HTML nas configuracoes.'
+        error: 'Interface nao reconhecida.'
       };
 
     } catch (error: any) {
