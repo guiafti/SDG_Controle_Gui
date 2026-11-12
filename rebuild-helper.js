@@ -1,15 +1,12 @@
 const { execSync } = require('child_process');
 const fs = require('fs');
 
-const env = { ...process.env };
+const vsDevCmd = 'C:\\Program Files\\Microsoft Visual Studio\\2022\\Enterprise\\Common7\\Tools\\VsDevCmd.bat';
 
-// No runner do GitHub Actions (windows-latest), apontar diretamente para o VS 2022 evita o bug do VS 18 preview
-const vs2022Path = 'C:\\Program Files\\Microsoft Visual Studio\\2022\\Enterprise\\VC\\';
-if (fs.existsSync(vs2022Path)) {
-  env.VCINSTALLDIR = vs2022Path;
-  env.VSCMD_VER = '17.0';
-  console.log('[Rebuild] Configurado para Visual Studio 2022 Enterprise.');
+if (fs.existsSync(vsDevCmd)) {
+  console.log('[Rebuild] Ativando ambiente do Visual Studio 2022 Enterprise...');
+  execSync(`cmd.exe /c "call \\"${vsDevCmd}\\" -arch=x64 && npx electron-rebuild -f"`, { stdio: 'inherit' });
+} else {
+  console.log('[Rebuild] Executando electron-rebuild padrao...');
+  execSync('npx electron-rebuild -f', { stdio: 'inherit' });
 }
-
-console.log('[Rebuild] Iniciando electron-rebuild...');
-execSync('npx electron-rebuild -f', { stdio: 'inherit', env });

@@ -11,6 +11,9 @@ const Settings: React.FC = () => {
   const [logoBase64, setLogoBase64] = useState('');
   const [printerInterface, setPrinterInterface] = useState('printer:POS-58');
   const [printerType, setPrinterType] = useState('escpos');
+  const [paperWidth, setPaperWidth] = useState<'58mm' | '80mm'>(
+    (localStorage.getItem('sdg_printer_paper_width') as any) || '58mm'
+  );
   const [availablePrinters, setAvailablePrinters] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
   const [newCategory, setNewCategory] = useState('');
@@ -33,11 +36,16 @@ const Settings: React.FC = () => {
       const logoSetting = settings.find((s: any) => s.key === 'logo');
       const pInterface = settings.find((s: any) => s.key === 'printer_interface');
       const pType = settings.find((s: any) => s.key === 'printer_type');
+      const pWidth = settings.find((s: any) => s.key === 'printer_paper_width');
 
       if (colorSetting) setPrimaryColor(colorSetting.value);
       if (logoSetting) setLogoBase64(logoSetting.value);
       if (pInterface) setPrinterInterface(pInterface.value);
       if (pType) setPrinterType(pType.value);
+      if (pWidth && (pWidth.value === '58mm' || pWidth.value === '80mm')) {
+        setPaperWidth(pWidth.value);
+        localStorage.setItem('sdg_printer_paper_width', pWidth.value);
+      }
     } catch (e) { console.error(e); }
   };
 
@@ -69,9 +77,11 @@ const Settings: React.FC = () => {
   const handleSavePrinter = async () => {
     const loadingId = toast.loading('Salvando configurações de impressão...');
     try {
+      localStorage.setItem('sdg_printer_paper_width', paperWidth);
       await window.api.saveSettings([
         { key: 'printer_interface', value: printerInterface },
-        { key: 'printer_type', value: printerType }
+        { key: 'printer_type', value: printerType },
+        { key: 'printer_paper_width', value: paperWidth }
       ]);
       toast.success('Configurações de impressão salvas!', { id: loadingId });
     } catch (e) { toast.error('Erro ao salvar', { id: loadingId }); }
@@ -229,6 +239,28 @@ const Settings: React.FC = () => {
                   >
                     <div className="text-[10px] font-black uppercase mb-1">HTML (Windows)</div>
                     <div className="text-slate-400 text-[9px]">Usa o gerenciador do Windows</div>
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Largura da Boca (Papel)</label>
+                <div className="flex gap-4">
+                  <button 
+                    type="button"
+                    onClick={() => setPaperWidth('58mm')}
+                    className={`flex-1 p-4 rounded-2xl border-2 transition-all text-left ${paperWidth === '58mm' ? 'border-brand-500 bg-brand-50' : 'border-slate-100'}`}
+                  >
+                    <div className="text-[10px] font-black uppercase mb-1">58mm (Pequena)</div>
+                    <div className="text-slate-400 text-[9px]">POS-58 e portáteis</div>
+                  </button>
+                  <button 
+                    type="button"
+                    onClick={() => setPaperWidth('80mm')}
+                    className={`flex-1 p-4 rounded-2xl border-2 transition-all text-left ${paperWidth === '80mm' ? 'border-brand-500 bg-brand-50' : 'border-slate-100'}`}
+                  >
+                    <div className="text-[10px] font-black uppercase mb-1">80mm (Grande Balcão)</div>
+                    <div className="text-slate-400 text-[9px]">Elgin i7/i8/i9, Epson e Bematech</div>
                   </button>
                 </div>
               </div>

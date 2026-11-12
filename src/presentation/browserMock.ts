@@ -1,6 +1,16 @@
+import { supabase } from './supabaseClient';
+
 // Mock do window.api para rodar a aplicação perfeitamente no navegador/Vercel (sem Electron)
 if (typeof window !== 'undefined' && !window.api) {
-  console.log('[BROWSER MOCK] Carregando simulador de banco de dados e impressão (localStorage)...');
+  console.log('[BROWSER MOCK] Carregando simulador de banco de dados e impressão (localStorage + Supabase)...');
+
+  const getPaperWidth = (): string => {
+    try {
+      return localStorage.getItem('sdg_printer_paper_width') === '80mm' ? '80mm' : '58mm';
+    } catch {
+      return '58mm';
+    }
+  };
 
   // Helpers para persistência no LocalStorage
   const getStorage = <T>(key: string, defaultValue: T): T => {
@@ -40,7 +50,7 @@ if (typeof window !== 'undefined' && !window.api) {
         <style>
           body { 
             font-family: 'Courier New', Courier, monospace; 
-            width: 58mm; 
+            width: ${getPaperWidth()}; 
             margin: 0; 
             padding: 5px;
             font-size: 10px;
@@ -197,7 +207,7 @@ if (typeof window !== 'undefined' && !window.api) {
         <style>
           body { 
             font-family: 'Courier New', Courier, monospace; 
-            width: 58mm; 
+            width: ${getPaperWidth()}; 
             margin: 0; 
             padding: 0;
             font-size: 10px;
@@ -314,6 +324,51 @@ if (typeof window !== 'undefined' && !window.api) {
       });
     });
   });
+
+  // Sincronizador Automático Supabase em Tempo Real
+  const syncSupabase = async () => {
+    try {
+      console.log('[BROWSER MOCK] Sincronizando com Supabase em tempo real...');
+      const [
+        storesRes,
+        categoriesRes,
+        productsRes,
+        inventoryRes,
+        customersRes,
+        repairsRes,
+        salesRes,
+        usersRes
+      ] = await Promise.all([
+        supabase.from('stores').select('*'),
+        supabase.from('categories').select('*'),
+        supabase.from('products').select('*'),
+        supabase.from('inventory').select('*'),
+        supabase.from('customers').select('*'),
+        supabase.from('maintenance_orders').select('*'),
+        supabase.from('sales').select('*'),
+        supabase.from('users').select('*')
+      ]);
+
+      if (storesRes.data && storesRes.data.length > 0) setStorage('stores', storesRes.data);
+      if (categoriesRes.data && categoriesRes.data.length > 0) setStorage('categories', categoriesRes.data);
+      if (productsRes.data && productsRes.data.length > 0) {
+        setStorage('products', productsRes.data);
+        console.log(`[BROWSER MOCK] ${productsRes.data.length} produtos carregados do Supabase.`);
+      }
+      if (inventoryRes.data && inventoryRes.data.length > 0) setStorage('inventory', inventoryRes.data);
+      if (customersRes.data && customersRes.data.length > 0) setStorage('customers', customersRes.data);
+      if (repairsRes.data && repairsRes.data.length > 0) setStorage('repairs', repairsRes.data);
+      if (salesRes.data && salesRes.data.length > 0) setStorage('sales', salesRes.data);
+      if (usersRes.data && usersRes.data.length > 0) setStorage('users', usersRes.data);
+
+      window.dispatchEvent(new CustomEvent('supabase-synced'));
+    } catch (e) {
+      console.warn('[BROWSER MOCK] Aviso na sincronização com o Supabase:', e);
+    }
+  };
+
+  setTimeout(syncSupabase, 100);
+  setInterval(syncSupabase, 30000);
 
   // API Mocked Object
   (window as any).api = {
@@ -458,6 +513,7 @@ if (typeof window !== 'undefined' && !window.api) {
       
       sales.push(newSale);
       setStorage('sales', sales);
+      supabase.from('sales').insert([newSale]).catch((err: any) => console.warn('Supabase sale insert warn:', err));
 
       // Abate no estoque
       sale.items.forEach((item: any) => {
