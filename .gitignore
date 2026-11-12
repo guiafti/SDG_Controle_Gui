@@ -9,6 +9,11 @@ release/
 local.db
 local.db-journal
 local.db-wal
+local.db-shm
+
+# Backups e Referencias
+Supa Base/
+Delivery/
 
 # Mobile Project
 SDG_MOBILE_APP/

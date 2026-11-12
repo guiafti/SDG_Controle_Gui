@@ -436,6 +436,33 @@ export class SyncEngine {
         }
       }
 
+      // 8. Vendas
+      const { data: cloudSales, error: saleErr } = await this.supabase.from('sales').select('*');
+      if (saleErr) console.error('[SYNC ERROR] Erro Pull Vendas:', saleErr);
+      if (cloudSales) {
+        for (const s of cloudSales) {
+          await run(`INSERT OR REPLACE INTO sales (id, total, payment_method, vendedor, store_id, customer_id, items, discount, synced, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?)`, [s.id, s.total, s.payment_method, s.vendedor, s.store_id, s.customer_id, s.items, s.discount || 0, s.created_at]);
+        }
+      }
+
+      // 9. Comissoes
+      const { data: cloudComms, error: commErr } = await this.supabase.from('commissions').select('*');
+      if (commErr) console.error('[SYNC ERROR] Erro Pull Comissoes:', commErr);
+      if (cloudComms) {
+        for (const c of cloudComms) {
+          await run(`INSERT OR REPLACE INTO commissions (id, sale_id, vendedor, value, percentage, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)`, [c.id, c.sale_id, c.vendedor, c.value, c.percentage, c.status, c.created_at]);
+        }
+      }
+
+      // 10. Transacoes Financeiras
+      const { data: cloudFin, error: finErr } = await this.supabase.from('financial_transactions').select('*');
+      if (finErr) console.error('[SYNC ERROR] Erro Pull Transacoes:', finErr);
+      if (cloudFin) {
+        for (const f of cloudFin) {
+          await run(`INSERT OR REPLACE INTO financial_transactions (id, type, category, description, amount, date, payment_method, store_id, reference_id, synced, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)`, [f.id, f.type, f.category, f.description, f.amount, f.date, f.payment_method, f.store_id, f.reference_id, f.created_at]);
+        }
+      }
+
       logSync('PULL finalizado com sucesso.');
     } catch (err: any) {
       logSync(`FALHA NO PULL: ${err.message}`);
