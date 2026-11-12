@@ -1049,28 +1049,51 @@ if (typeof window !== 'undefined' && !window.api) {
       return title ? title.value : 'SDG CONTROLE';
     },
 
-    // --- IMPRESSORAS E UTILS COM SUPORTE A FALLBACK HTML NO NAVEGADOR ---
+    // --- IMPRESSORAS E UTILS COM SUPORTE A SERVIDOR NATIVO PORTA 3001 + FALLBACK BROWSER ---
     getPrinters: async () => {
-      return [{ name: 'IMPRESSORA MOCK BROWSER (NATIVO BROWSER)', isDefault: true }];
+      try {
+        const res = await fetch('http://localhost:3001/printers', { signal: AbortSignal.timeout(1500) });
+        if (res.ok) {
+          const json = await res.json();
+          if (json.printers && json.printers.length > 0) {
+            return json.printers.map((name: string) => ({
+              name,
+              isDefault: name === json.defaultPrinter
+            }));
+          }
+        }
+      } catch {}
+      return [{ name: 'IMPRESSORA PADRÃO DO WINDOWS', isDefault: true }];
     },
 
     testPrinter: async (data: { deviceName: string }) => {
+      try {
+        const res = await fetch(`http://localhost:3001/test?printer=${encodeURIComponent(data?.deviceName || '')}`, {
+          signal: AbortSignal.timeout(2500)
+        });
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success) return { success: true };
+        }
+      } catch {}
+
       console.log('[BROWSER MOCK] Imprimindo cupom de teste no navegador para:', data.deviceName);
       const testHtml = `
         <html>
           <style>
-            body { font-family: monospace; width: 58mm; padding: 10px; font-size: 12px; text-align: center; }
+            body { font-family: monospace; width: ${getPaperWidth()}; padding: 10px; font-size: 12px; text-align: center; }
             .bold { font-weight: bold; font-size: 14px; }
             .line { border-top: 1px dashed #000; margin: 5px 0; }
           </style>
           <body>
             <div class="bold">TESTE DE IMPRESSÃO</div>
-            <div>SDG CONTROLE - WEB FALLBACK</div>
+            <div>SDG CONTROLE - WEB</div>
             <div class="line"></div>
             <div>IMPRESSORA: ${data.deviceName || 'PADRÃO'}</div>
+            <div>LARGURA: ${getPaperWidth()}</div>
             <div>DATA: ${new Date().toLocaleString()}</div>
             <div class="line"></div>
-            <p>Se você está lendo isto, a sua impressora está configurada corretamente no seu Windows e o navegador conseguiu enviar o documento!</p>
+            <p>Se você está lendo isto, a sua impressora está configurada corretamente e respondendo aos comandos de impressão!</p>
             <div class="line"></div>
             <br/><br/>.
           </body>
